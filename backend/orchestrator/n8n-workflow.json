@@ -1,0 +1,131 @@
+{
+  "id": "pixie-stylist-orchestrator",
+  "name": "Pixie Stylist Orchestrator",
+  "description": "n8n workflow that orchestrates AI agents for fashion styling",
+  "version": "1.0.0",
+  "nodes": [
+    {
+      "id": "trigger",
+      "type": "n8n-nodes-base.webhook",
+      "name": "Webhook Trigger",
+      "position": [50, 200],
+      "parameters": {
+        "path": "pixie-stylist",
+        "httpMethod": "POST"
+      }
+    },
+    {
+      "id": "parse_input",
+      "type": "n8n-nodes-base.code",
+      "name": "Parse User Input",
+      "position": [250, 200],
+      "parameters": {
+        "jsCode": "const body = $input.all()[0].json;\nreturn {\n  message: body.message,\n  images: body.images || [],\n  context: body.context || {}\n};"
+      }
+    },
+    {
+      "id": "vision_analysis",
+      "type": "n8n-nodes-base.httpRequest",
+      "name": "Vision Agent",
+      "position": [450, 100],
+      "parameters": {
+        "url": "http://localhost:3001/api/vision/analyze",
+        "method": "POST",
+        "sendBody": true,
+        "contentType": "application/json"
+      }
+    },
+    {
+      "id": "logic_agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "name": "Logic Agent",
+      "position": [450, 250],
+      "parameters": {
+        "url": "http://localhost:3001/api/logic/recommend",
+        "method": "POST",
+        "sendBody": true,
+        "contentType": "application/json"
+      }
+    },
+    {
+      "id": "context_agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "name": "Context Agent",
+      "position": [450, 400],
+      "parameters": {
+        "url": "http://localhost:3001/api/context/data",
+        "method": "POST",
+        "sendBody": true,
+        "contentType": "application/json"
+      }
+    },
+    {
+      "id": "image_generation",
+      "type": "n8n-nodes-base.httpRequest",
+      "name": "Image Generation Agent",
+      "position": [650, 250],
+      "parameters": {
+        "url": "http://localhost:3001/api/generate/image",
+        "method": "POST",
+        "sendBody": true,
+        "contentType": "application/json"
+      }
+    },
+    {
+      "id": "merge_results",
+      "type": "n8n-nodes-base.code",
+      "name": "Merge Agent Results",
+      "position": [800, 250],
+      "parameters": {
+        "jsCode": "const all = $input.all();\nconst results = {};\nall.forEach(item => {\n  Object.assign(results, item.json);\n});\nreturn results;"
+      }
+    },
+    {
+      "id": "return_response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "name": "Return Response",
+      "position": [950, 250]
+    }
+  ],
+  "connections": {
+    "trigger": {
+      "main": [
+        [{ "node": "parse_input", "index": 0 }]
+      ]
+    },
+    "parse_input": {
+      "main": [
+        [
+          { "node": "vision_analysis", "index": 0 },
+          { "node": "logic_agent", "index": 0 },
+          { "node": "context_agent", "index": 0 }
+        ]
+      ]
+    },
+    "vision_analysis": {
+      "main": [[{ "node": "image_generation", "index": 0 }]]
+    },
+    "logic_agent": {
+      "main": [[{ "node": "image_generation", "index": 0 }]]
+    },
+    "context_agent": {
+      "main": [[{ "node": "merge_results", "index": 0 }]]
+    },
+    "image_generation": {
+      "main": [[{ "node": "merge_results", "index": 0 }]]
+    },
+    "merge_results": {
+      "main": [[{ "node": "return_response", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "errorHandler": "handleErrors",
+    "timeout": 30000,
+    "retries": {
+      "enabled": true,
+      "attempts": 2,
+      "delayBetweenAttempts": 1000
+    }
+  },
+  "documentation": "n8n workflow that coordinates multiple AI agents for outfit recommendation pipeline"
+}

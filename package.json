@@ -1,0 +1,39 @@
+{
+  "name": "pixie-stylist",
+  "version": "1.0.0",
+  "description": "AI Fashion Stylist - Full Stack Application",
+  "type": "module",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev -w frontend\" \"npm run dev -w backend\"",
+    "build": "npm run build -w frontend && npm run build -w backend",
+    "start": "npm start -w backend",
+    "frontend": "npm run dev -w frontend",
+    "backend": "npm run dev -w backend",
+    "test": "npm test -w frontend && npm test -w backend"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.1"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "keywords": [
+    "AI",
+    "Fashion",
+    "Styling",
+    "Recommendation",
+    "Machine Learning",
+    "Vision",
+    "Claude",
+    "React",
+    "Express"
+  ],
+  "author": "Your Name",
+  "license": "MIT"
+}
