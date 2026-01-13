@@ -4,16 +4,15 @@
  * Returns structured garment metadata: type, material, color, aesthetic style
  */
 
-import Anthropic from '@anthropic-ai/sdk'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 import fs from 'fs'
 import path from 'path'
 
 class VisionAgent {
   constructor(apiKey) {
-    this.client = new Anthropic({
-      apiKey: apiKey || process.env.GOOGLE_AI_API_KEY || 'AIzaSyCYzJDlnvVp7QG7hC9WkQDs1SMPcUzQ2c0'
-    })
-    this.model = 'claude-3-5-sonnet-20241022' // Using Claude for vision capabilities
+    this.apiKey = apiKey || process.env.GOOGLE_AI_API_KEY || 'AIzaSyCYzJDlnvVp7QG7hC9WkQDs1SMPcUzQ2c0'
+    this.genAI = new GoogleGenerativeAI(this.apiKey)
+    this.model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
   }
 
   /**
@@ -40,8 +39,8 @@ class VisionAgent {
 {
   "garment_type": "specific type of garment (e.g., maxi skirt, oversized blazer, crop top)",
   "material": "primary material (e.g., cotton, denim, silk, polyester, wool)",
-  "primary_colour_hex": "hex color code (e.g., #FF5733)",
-  "secondary_colours": ["list of other prominent colors as hex codes"],
+  "primary_colour": "primary color name (e.g., Navy Blue, Forest Green, Crimson Red, Beige)",
+  "secondary_colours": ["list of other prominent color names"],
   "aesthetic_style": "fashion style category (e.g., Y2K, Business Casual, Streetwear, Minimalist, Bohemian, Preppy, Grunge)",
   "fit": "how it fits (e.g., oversized, fitted, relaxed, bodycon)",
   "occasion": "suitable occasions (e.g., casual, formal, party, work)",
@@ -51,36 +50,18 @@ class VisionAgent {
   "versatility_score": "1-10 rating for outfit versatility"
 }
 
-Return ONLY valid JSON, no additional text.`
+Use descriptive color names that people can easily understand. Return ONLY valid JSON, no additional text.`
 
-      const response = await this.client.messages.create({
-        model: this.model,
-        max_tokens: 1024,
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'image',
-                source: {
-                  type: 'base64',
-                  media_type: mimeType,
-                  data: imageBase64
-                }
-              },
-              {
-                type: 'text',
-                text: prompt
-              }
-            ]
-          }
-        ]
-      })
+      const imagePart = {
+        inlineData: {
+          data: imageBase64,
+          mimeType: mimeType
+        }
+      }
 
-      // Extract JSON from response
-      const responseText = response.content[0].type === 'text' 
-        ? response.content[0].text 
-        : ''
+      const result = await this.model.generateContent([prompt, imagePart])
+      const response = await result.response
+      const responseText = response.text()
 
       // Parse JSON response
       const jsonMatch = responseText.match(/\{[\s\S]*\}/)
@@ -138,7 +119,7 @@ Return ONLY valid JSON, no additional text.`
       const analysis = await this.analyzeClothing(imageData)
       if (analysis.success && analysis.data) {
         const colors = [
-          analysis.data.primary_colour_hex,
+          analysis.data.primary_colour,
           ...(analysis.data.secondary_colours || [])
         ].filter(c => c)
         return colors
@@ -169,7 +150,7 @@ Return ONLY valid JSON, no additional text.`
       // Aggregate data
       const allColors = successfulAnalyses
         .flatMap(a => [
-          a.data.primary_colour_hex,
+          a.data.primary_colour,
           ...(a.data.secondary_colours || [])
         ])
         .filter(c => c)

@@ -65,6 +65,44 @@ class LogicAgent {
       warm_colors: ['#FF4500', '#FF6347', '#FFA500', '#FFD700', '#DC143C'],
       cool_colors: ['#0000CD', '#00CED1', '#48D1CC', '#20B2AA', '#4169E1'],
       
+      // Human-friendly names for common palette hex codes
+      hexNames: {
+        '#000000': 'Black',
+        '#FFFFFF': 'White',
+        '#808080': 'Gray',
+        '#A9A9A9': 'Dark Gray',
+        '#D3D3D3': 'Light Gray',
+        '#C0C0C0': 'Silver',
+        '#FFB6C1': 'Light Pink',
+        '#FFD700': 'Gold',
+        '#87CEEB': 'Sky Blue',
+        '#98FB98': 'Pale Green',
+        '#DDA0DD': 'Plum',
+        '#FF0000': 'Red',
+        '#0000FF': 'Blue',
+        '#00FF00': 'Lime',
+        '#FFFF00': 'Yellow',
+        '#FF8C00': 'Dark Orange',
+        '#8B4513': 'Saddle Brown',
+        '#CD853F': 'Peru',
+        '#DEB887': 'Burly Wood',
+        '#D2B48C': 'Tan',
+        '#BC8F8F': 'Rosy Brown',
+        '#FF4500': 'Orange Red',
+        '#FF6347': 'Tomato',
+        '#FFA500': 'Orange',
+        '#DC143C': 'Crimson',
+        '#0000CD': 'Medium Blue',
+        '#00CED1': 'Dark Turquoise',
+        '#48D1CC': 'Medium Turquoise',
+        '#20B2AA': 'Light Sea Green',
+        '#4169E1': 'Royal Blue',
+        '#6C5CE7': 'Indigo',
+        '#00CEC9': 'Teal',
+        '#FAB1A0': 'Peach',
+        '#2D3436': 'Charcoal'
+      },
+
       harmonies: {
         'warm_earthy': ['#8B4513', '#A0522D', '#CD853F', '#DAA520'],
         'cool_minimal': ['#2F4F4F', '#708090', '#778899', '#A9A9A9'],
@@ -80,6 +118,20 @@ class LogicAgent {
         '#FAB1A0': ['#2D3436', '#FFFFFF', '#6C5CE7']
       }
     }
+  }
+
+  /**
+   * Convert a hex color or name to a human-friendly color name
+   */
+  _toColorName(color) {
+    if (!color) return 'a complementary color'
+    // If it's already a name (not starting with #), normalize capitalization
+    if (typeof color === 'string' && !color.startsWith('#')) {
+      const name = color.trim()
+      return name.charAt(0).toUpperCase() + name.slice(1)
+    }
+    const hex = color.toUpperCase()
+    return this.colorRules.hexNames[hex] || hex
   }
 
   /**
@@ -141,11 +193,13 @@ class LogicAgent {
       const logic = []
 
       // 1. Color harmony analysis
-      const primaryColor = baseGarment.primary_colour_hex
-      const complementaryPairs = this._findComplementaryColors(primaryColor)
+      const primaryHex = baseGarment.primary_colour_hex
+      const primaryName = baseGarment.primary_colour || this._toColorName(primaryHex || '#6C5CE7')
+      const complementaryPairsHex = this._findComplementaryColors(primaryHex || '#6C5CE7')
+      const complementaryPairs = complementaryPairsHex.map(h => this._toColorName(h))
       
       if (complementaryPairs.length > 0) {
-        logic.push(`Color Theory: ${baseGarment.primary_colour_hex} pairs well with ${complementaryPairs.join(', ')} for visual interest.`)
+        logic.push(`Color Theory: ${primaryName} pairs well with ${complementaryPairs.join(', ')} for visual interest.`)
         recommendations.push(`Pair this ${baseGarment.garment_type} with bottoms in ${complementaryPairs[0]} for a harmonious look.`)
       }
 
@@ -186,7 +240,7 @@ class LogicAgent {
         styling_logic: logic.join(' '),
         recommendations: recommendations,
         color_analysis: {
-          primary: primaryColor,
+          primary: primaryName,
           complementary: complementaryPairs,
           harmony_type: this._determineColorHarmony(baseGarment)
         },
@@ -400,13 +454,14 @@ class LogicAgent {
    * Determine color harmony type
    */
   _determineColorHarmony(garment) {
-    const color = garment.primary_colour_hex || '#6C5CE7'
+    const colorHex = garment.primary_colour_hex || '#6C5CE7'
+    const colorName = (garment.primary_colour || this._toColorName(colorHex)).toLowerCase()
     const styles = Object.keys(this.colorRules.harmonies)
     
     // Simplified harmony detection
-    if (color.toLowerCase() === '#6c5ce7' || color.toLowerCase() === '#00cec9') {
+    if (colorHex.toLowerCase() === '#6c5ce7' || colorHex.toLowerCase() === '#00cec9' || ['indigo','teal'].includes(colorName)) {
       return 'cool_minimal'
-    } else if (color.toLowerCase() === '#fab1a0') {
+    } else if (colorHex.toLowerCase() === '#fab1a0' || colorName === 'peach') {
       return 'warm_earthy'
     }
 
@@ -420,7 +475,7 @@ class LogicAgent {
     let score = 70 // Base score
 
     // Increase if garment has complete metadata
-    if (garment.primary_colour_hex) score += 10
+    if (garment.primary_colour || garment.primary_colour_hex) score += 10
     if (garment.material) score += 5
     if (garment.aesthetic_style) score += 10
     if (garment.fit) score += 5

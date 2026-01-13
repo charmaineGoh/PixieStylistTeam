@@ -83,7 +83,7 @@ app.get('/api/health', (req, res) => {
  * Main stylist recommendation endpoint
  * Orchestrates via n8n workflow (or direct agents if n8n unavailable)
  */
-app.post('/api/stylist/recommend', upload.array('image_', 10), async (req, res) => {
+app.post('/api/stylist/recommend', upload.any(), async (req, res) => {
   try {
     const sessionId = uuidv4()
     const userMessage = req.body.message || ''
