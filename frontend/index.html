@@ -18,4 +18,12 @@
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
+  <!-- Flowise Chatbot -->
+    <script type="module">
+        import Chatbot from "https://cdn.jsdelivr.net/npm/flowise-embed/dist/web.js"
+        Chatbot.init({
+            chatflowid: "315df90b-c95c-4dda-8c85-d4a5d5b5e0fa",
+            apiHost: "https://cloud.flowiseai.com",
+        })
+    </script>
 </html>
