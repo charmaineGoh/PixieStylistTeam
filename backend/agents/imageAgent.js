@@ -8,7 +8,7 @@ import axios from 'axios'
 
 class ImageGenerationAgent {
   constructor(openaiApiKey = null) {
-    this.apiKey = openaiApiKey || process.env.OPENAI_API_KEY || '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'
+    this.apiKey = openaiApiKey || process.env.OPENAI_API_KEY
     this.apiUrl = 'https://api.openai.com/v1/images/generations'
     this.model = process.env.OPENAI_IMAGE_MODEL || 'dall-e-3'
     this.imageSize = process.env.OPENAI_IMAGE_SIZE || '1024x1024'
