@@ -2,6 +2,7 @@ import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
 export default defineConfig({
+  base: '/PixieStylistTeam/',
   plugins: [react()],
   server: {
     port: 5173,
@@ -20,7 +21,7 @@ export default defineConfig({
     minify: 'terser',
   },
   define: {
-    'process.env.VITE_API_URL': JSON.stringify(process.env.VITE_API_URL || 'http://localhost:3001'),
+    'process.env.VITE_API_URL': JSON.stringify(process.env.VITE_API_URL || 'https://your-render-backend-url.onrender.com'),
     'process.env.VITE_API_KEY': JSON.stringify(process.env.VITE_API_KEY || 'mock-api-key'),
   },
 })
