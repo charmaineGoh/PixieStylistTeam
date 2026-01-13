@@ -11,7 +11,7 @@ import path from 'path'
 class VisionAgent {
   constructor(apiKey) {
     this.client = new Anthropic({
-      apiKey: apiKey || process.env.GOOGLE_AI_API_KEY || 'mock-api-key'
+      apiKey: apiKey || process.env.GOOGLE_AI_API_KEY || 'AIzaSyCYzJDlnvVp7QG7hC9WkQDs1SMPcUzQ2c0'
     })
     this.model = 'claude-3-5-sonnet-20241022' // Using Claude for vision capabilities
   }

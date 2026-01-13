@@ -81,7 +81,7 @@ app.get('/api/health', (req, res) => {
 
 /**
  * Main stylist recommendation endpoint
- * Orchestrates the entire agent pipeline
+ * Orchestrates via n8n workflow (or direct agents if n8n unavailable)
  */
 app.post('/api/stylist/recommend', upload.array('image_', 10), async (req, res) => {
   try {
@@ -95,6 +95,53 @@ app.post('/api/stylist/recommend', upload.array('image_', 10), async (req, res) 
       imageCount: images.length,
       context
     })
+
+    // Try n8n workflow first
+    const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL
+    
+    if (n8nWebhookUrl) {
+      try {
+        console.log(`[${sessionId}] Routing to n8n workflow...`)
+        
+        // Create FormData for n8n
+        const formData = new FormData()
+        formData.append('message', userMessage)
+        formData.append('context', JSON.stringify(context))
+        
+        images.forEach((img, index) => {
+          formData.append(`image_${index}`, new Blob([img.buffer], { type: img.mimetype }), img.originalname)
+        })
+
+        const n8nResponse = await fetch(n8nWebhookUrl, {
+          method: 'POST',
+          body: formData
+        })
+
+        if (n8nResponse.ok) {
+          const result = await n8nResponse.json()
+          console.log(`[${sessionId}] n8n workflow completed`)
+          
+          // Store session for follow-up requests
+          sessionStore.set(sessionId, {
+            ...result,
+            context: context,
+            timestamp: new Date()
+          })
+
+          return res.json({
+            success: true,
+            session_id: sessionId,
+            ...result
+          })
+        }
+      } catch (n8nError) {
+        console.warn(`[${sessionId}] n8n unavailable, falling back to direct agents:`, n8nError.message)
+        // Fall through to direct agent orchestration
+      }
+    }
+
+    // Fallback: Direct agent orchestration
+    console.log(`[${sessionId}] Using direct agent orchestration...`)
 
     // 1. Vision Agent: Analyze uploaded images
     let garmentAnalyses = []

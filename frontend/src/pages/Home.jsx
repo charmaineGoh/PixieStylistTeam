@@ -103,13 +103,16 @@ export default function Home() {
     <div className="min-h-screen flex flex-col">
       {/* Header */}
       <header className="bg-gradient-to-r from-white to-purple-50 border-b border-gray-100 px-6 py-3 shadow-sm">
-        <div className="max-w-6xl mx-auto">
-          <h1 className="text-xl font-bold text-[#6C5CE7]">
-            ✨ Pixie Stylist
-          </h1>
-          <p className="text-gray-500 text-xs mt-0.5">
-            Your AI-powered fashion styling assistant
-          </p>
+        <div className="max-w-6xl mx-auto flex items-center gap-3">
+          <img src="/Screenshot_2026-01-13_092018-removebg-preview.png" alt="Pixie Stylist Logo" className="h-8 w-8 object-contain" />
+          <div>
+            <h1 className="text-xl font-bold text-[#6C5CE7]">
+              Pixie Stylist
+            </h1>
+            <p className="text-gray-500 text-xs mt-0.5">
+              Your AI-powered fashion styling assistant
+            </p>
+          </div>
         </div>
       </header>
 
