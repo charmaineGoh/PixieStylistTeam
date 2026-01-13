@@ -21,7 +21,7 @@ export default defineConfig({
     minify: 'terser',
   },
   define: {
-    'process.env.VITE_API_URL': JSON.stringify(process.env.VITE_API_URL || 'https://your-render-backend-url.onrender.com'),
+    'process.env.VITE_API_URL': JSON.stringify(process.env.VITE_API_URL || 'https://pixiestylistbackend-5iuc.onrender.com'),
     'process.env.VITE_API_KEY': JSON.stringify(process.env.VITE_API_KEY || 'mock-api-key'),
   },
 })
