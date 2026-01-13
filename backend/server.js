@@ -152,21 +152,46 @@ app.post('/api/stylist/recommend', upload.any(), async (req, res) => {
         images.map(img => visionAgent.analyzeClothing(img.buffer, img.mimetype))
       )
       
+      console.log(`[${sessionId}] Vision Agent Results:`, JSON.stringify(imageAnalyses, null, 2))
+      
       garmentAnalyses = imageAnalyses
         .filter(analysis => analysis.success)
         .map(analysis => analysis.data)
 
       console.log(`[${sessionId}] Vision Agent completed: ${garmentAnalyses.length} items analyzed`)
+      console.log(`[${sessionId}] Analyzed garments:`, JSON.stringify(garmentAnalyses.map(g => ({ type: g.garment_type, color: g.primary_colour })), null, 2))
+    }
+
+    // Generate randomized fallback garment if vision analysis failed
+    const getRandomFallbackGarment = () => {
+      const garmentTypes = ['casual top', 'stylish shirt', 'trendy pants', 'versatile dress', 'classic jacket', 'modern blouse', 'comfortable tee', 'chic skirt']
+      const styles = ['minimalist', 'casual', 'modern', 'streetwear', 'preppy', 'bohemian', 'business casual', 'Y2K']
+      const colors = ['Black', 'White', 'Navy', 'Gray', 'Beige', 'Red', 'Blue', 'Green', 'Pink', 'Brown']
+      const fits = ['fitted', 'relaxed', 'oversized', 'loose', 'bodycon']
+      const occasions = ['casual', 'formal', 'party', 'work']
+      
+      return {
+        garment_type: garmentTypes[Math.floor(Math.random() * garmentTypes.length)],
+        aesthetic_style: styles[Math.floor(Math.random() * styles.length)],
+        primary_colour: colors[Math.floor(Math.random() * colors.length)],
+        fit: fits[Math.floor(Math.random() * fits.length)],
+        occasion: [occasions[Math.floor(Math.random() * occasions.length)]],
+        material: 'cotton'
+      }
     }
 
     // 2. Logic Agent: Generate outfit recommendations
     console.log(`[${sessionId}] Running Logic Agent...`)
+    const fallbackGarment = garmentAnalyses.length > 0 ? garmentAnalyses : [getRandomFallbackGarment()]
+    console.log(`[${sessionId}] Passing to Logic Agent:`, JSON.stringify(fallbackGarment, null, 2))
+    
     const logicResult = await logicAgent.generateRecommendations(
-      garmentAnalyses.length > 0 ? garmentAnalyses : [{ garment_type: 'mixed wardrobe', aesthetic_style: 'modern' }],
+      fallbackGarment,
       { occasion: context.occasion || 'casual' }
     )
 
     console.log(`[${sessionId}] Logic Agent completed`)
+    console.log(`[${sessionId}] Logic Result:`, JSON.stringify(logicResult, null, 2))
 
     // 3. Context Agent: Get weather and trends
     console.log(`[${sessionId}] Running Context Agent...`)

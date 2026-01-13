@@ -115,7 +115,37 @@ class LogicAgent {
         '#FFFFFF': ['#000000', '#00CEC9', '#FF6B6B'],
         '#6C5CE7': ['#00CEC9', '#FAB1A0', '#FFFFFF'],
         '#00CEC9': ['#6C5CE7', '#2D3436', '#FFD700'],
-        '#FAB1A0': ['#2D3436', '#FFFFFF', '#6C5CE7']
+        '#FAB1A0': ['#2D3436', '#FFFFFF', '#6C5CE7'],
+        // Red color pairings
+        'red': ['White', 'Black', 'Navy Blue', 'Beige', 'Gray'],
+        'crimson': ['White', 'Black', 'Cream', 'Gold'],
+        'burgundy': ['Cream', 'Tan', 'Black', 'Gray'],
+        // Blue color pairings
+        'blue': ['White', 'Gray', 'Beige', 'Brown', 'Navy Blue'],
+        'navy blue': ['White', 'Beige', 'Gray', 'Red', 'Gold'],
+        'sky blue': ['White', 'Pink', 'Gray', 'Beige'],
+        // Green color pairings
+        'green': ['White', 'Brown', 'Beige', 'Navy Blue', 'Black'],
+        'olive': ['Cream', 'Brown', 'White', 'Burgundy'],
+        'forest green': ['Tan', 'Cream', 'Brown', 'Gold'],
+        // Yellow/Orange pairings
+        'yellow': ['Gray', 'Navy Blue', 'White', 'Purple'],
+        'mustard': ['Navy Blue', 'Brown', 'Cream', 'Burgundy'],
+        'orange': ['Navy Blue', 'Teal', 'Brown', 'White'],
+        // Pink pairings
+        'pink': ['White', 'Gray', 'Navy Blue', 'Beige'],
+        'hot pink': ['Black', 'White', 'Navy Blue'],
+        // Purple pairings
+        'purple': ['White', 'Gray', 'Yellow', 'Green'],
+        'lavender': ['White', 'Gray', 'Navy Blue', 'Sage Green'],
+        // Brown pairings
+        'brown': ['Cream', 'Beige', 'White', 'Olive', 'Orange'],
+        'tan': ['White', 'Navy Blue', 'Brown', 'Burgundy'],
+        'beige': ['Navy Blue', 'Brown', 'White', 'Black'],
+        // Neutral pairings
+        'black': ['White', 'Red', 'Pink', 'Gold', 'any color'],
+        'white': ['any color', 'Navy Blue', 'Red', 'Black'],
+        'gray': ['Yellow', 'Pink', 'Teal', 'White', 'any color']
       }
     }
   }
@@ -124,7 +154,7 @@ class LogicAgent {
    * Convert a hex color or name to a human-friendly color name
    */
   _toColorName(color) {
-    if (!color) return 'a complementary color'
+    if (!color) return null
     // If it's already a name (not starting with #), normalize capitalization
     if (typeof color === 'string' && !color.startsWith('#')) {
       const name = color.trim()
@@ -194,13 +224,25 @@ class LogicAgent {
 
       // 1. Color harmony analysis
       const primaryHex = baseGarment.primary_colour_hex
-      const primaryName = baseGarment.primary_colour || this._toColorName(primaryHex || '#6C5CE7')
-      const complementaryPairsHex = this._findComplementaryColors(primaryHex || '#6C5CE7')
-      const complementaryPairs = complementaryPairsHex.map(h => this._toColorName(h))
+      const primaryName = baseGarment.primary_colour || this._toColorName(primaryHex || '')
+      const complementaryPairs = this._findComplementaryColors(primaryName || primaryHex)
       
-      if (complementaryPairs.length > 0) {
-        logic.push(`Color Theory: ${primaryName} pairs well with ${complementaryPairs.join(', ')} for visual interest.`)
-        recommendations.push(`Pair this ${baseGarment.garment_type} with bottoms in ${complementaryPairs[0]} for a harmonious look.`)
+      if (primaryName && complementaryPairs.length > 0) {
+        const garmentType = baseGarment.garment_type || 'item'
+        const colorPhrase = this._getRandomColorPhrase()
+        const pairingColors = complementaryPairs.slice(0, 2)
+        
+        logic.push(`${colorPhrase.charAt(0).toUpperCase() + colorPhrase.slice(1)} ${pairingColors.join(', ')}.`)
+        
+        // Provide specific pairing suggestions with variety
+        const pairingPhrase = this._getRandomPairingPhrase()
+        if (garmentType.toLowerCase().includes('shirt') || garmentType.toLowerCase().includes('top')) {
+          recommendations.push(`${pairingPhrase} this ${primaryName} top with ${pairingColors[0]} or ${pairingColors[1]} bottoms.`)
+        } else if (garmentType.toLowerCase().includes('pants') || garmentType.toLowerCase().includes('skirt')) {
+          recommendations.push(`${pairingPhrase} these ${primaryName} bottoms with a ${pairingColors[0]} or ${pairingColors[1]} top.`)
+        } else {
+          recommendations.push(`${pairingPhrase} this ${primaryName} piece with ${pairingColors[0]} for great contrast.`)
+        }
       }
 
       // 2. Fit and proportion advice
@@ -234,6 +276,11 @@ class LogicAgent {
       const accessoryAdvice = this._getAccessoryAdvice(baseGarment)
       recommendations.push(...accessoryAdvice)
 
+      // Ensure we always have meaningful styling logic
+      if (logic.length === 0) {
+        logic.push('This piece offers versatile styling options for your wardrobe.')
+      }
+
       return {
         success: true,
         base_garment: baseGarment,
@@ -260,9 +307,31 @@ class LogicAgent {
   /**
    * Find complementary colors from palette
    */
-  _findComplementaryColors(hexColor) {
+  _findComplementaryColors(colorInput) {
+    if (!colorInput) return ['White', 'Black', 'Gray']
+    
     const pairingRules = this.colorRules.pairingRules
-    return pairingRules[hexColor] || pairingRules['#6C5CE7'] // Default to primary color pairings
+    
+    // Check if it's a color name
+    const colorLower = colorInput.toLowerCase().trim()
+    if (pairingRules[colorLower]) {
+      return pairingRules[colorLower]
+    }
+    
+    // Check if it's a hex code
+    if (pairingRules[colorInput]) {
+      return pairingRules[colorInput].map(h => this._toColorName(h))
+    }
+    
+    // Try to match partial color names
+    for (const [key, value] of Object.entries(pairingRules)) {
+      if (colorLower.includes(key) || key.includes(colorLower)) {
+        return value
+      }
+    }
+    
+    // Default pairings
+    return ['White', 'Black', 'Navy Blue', 'Beige']
   }
 
   /**
@@ -270,22 +339,95 @@ class LogicAgent {
    */
   _analyzeFitAndProportion(garment, allGarments) {
     const fit = garment.fit || 'fitted'
+    const garmentType = (garment.garment_type || '').toLowerCase()
+    const isBottom = garmentType.includes('pants') || garmentType.includes('skirt') || 
+                     garmentType.includes('jeans') || garmentType.includes('shorts') || 
+                     garmentType.includes('trousers') || garmentType.includes('leggings')
+    const isTop = garmentType.includes('shirt') || garmentType.includes('top') || 
+                  garmentType.includes('blouse') || garmentType.includes('tee') || 
+                  garmentType.includes('sweater') || garmentType.includes('jacket')
     
     if (fit === 'oversized' || fit === 'loose') {
-      return {
-        logic: 'Balance oversized pieces with fitted bottoms for visual proportion.',
-        recommendation: 'Pair this oversized piece with fitted/tapered bottoms to maintain silhouette balance.'
+      if (isBottom) {
+        return {
+          logic: 'Relaxed bottoms create a comfortable, effortless silhouette.',
+          recommendation: 'Balance these relaxed bottoms with a fitted or cropped top for proportion.'
+        }
+      } else if (isTop) {
+        return {
+          logic: 'Oversized tops create a relaxed, modern aesthetic.',
+          recommendation: 'Pair this oversized piece with fitted bottoms like skinny jeans or tailored pants.'
+        }
+      } else {
+        return {
+          logic: 'Balance oversized pieces with fitted counterparts for visual proportion.',
+          recommendation: 'Mix fitted and relaxed pieces to create balanced outfits.'
+        }
       }
     } else if (fit === 'fitted' || fit === 'bodycon') {
-      return {
-        logic: 'Fitted tops pair well with relaxed or wide-leg bottoms for comfort and style.',
-        recommendation: 'Style with relaxed bottoms like wide-leg pants or flowing skirts for balanced proportions.'
+      if (isBottom) {
+        const bottomAdvice = [
+          {
+            logic: 'Fitted bottoms elongate the silhouette and create clean lines.',
+            recommendation: 'Pair these fitted bottoms with a relaxed top or structured blazer for balance.'
+          },
+          {
+            logic: 'Sleek, fitted bottoms are incredibly versatile and flattering.',
+            recommendation: 'Style with an oversized sweater or flowy blouse for that perfect high-low contrast.'
+          },
+          {
+            logic: 'These form-fitting bottoms create a streamlined base for any outfit.',
+            recommendation: 'Add volume on top with a peplum top, ruffled blouse, or chunky knit.'
+          },
+          {
+            logic: 'Fitted pants are a wardrobe essential that work season after season.',
+            recommendation: 'Tuck in a crisp button-down or add a longline cardigan for effortless chic.'
+          }
+        ]
+        return bottomAdvice[Math.floor(Math.random() * bottomAdvice.length)]
+      } else if (isTop) {
+        return {
+          logic: 'Fitted tops work beautifully with relaxed or wide-leg bottoms.',
+          recommendation: 'Style this fitted top with wide-leg pants or flowing skirts for comfort and elegance.'
+        }
+      } else {
+        return {
+          logic: 'Fitted pieces create streamlined silhouettes.',
+          recommendation: 'Balance fitted items with relaxed pieces for versatile styling.'
+        }
+      }
+    } else if (fit === 'relaxed') {
+      if (isBottom) {
+        const relaxedBottomAdvice = [
+          {
+            logic: 'Relaxed-fit bottoms offer comfort without sacrificing style.',
+            recommendation: 'Pair with a tucked-in tee or fitted top to define your waist.'
+          },
+          {
+            logic: 'These easy-wearing bottoms are perfect for laid-back sophistication.',
+            recommendation: 'Try a half-tuck with a casual tee or go full glam with a bodysuit and heels.'
+          },
+          {
+            logic: 'Comfortable yet stylish - the best of both worlds.',
+            recommendation: 'Cinch with a statement belt or keep it relaxed with a cropped tank.'
+          },
+          {
+            logic: 'Effortless style starts with comfortable, well-cut bottoms.',
+            recommendation: 'Balance the silhouette with a fitted knit or structured jacket.'
+          }
+        ]
+        return relaxedBottomAdvice[Math.floor(Math.random() * relaxedBottomAdvice.length)]
+      } else {
+        return {
+          logic: 'Relaxed pieces create an effortless, casual aesthetic.',
+          recommendation: 'Style with fitted bottoms or add a belt to create structure.'
+        }
       }
     }
     
     return {
-      logic: 'Consider mixing fitted and relaxed pieces for visual interest.',
-      recommendation: 'Mix pieces with different fits to create dynamic outfits.'
+      logic: 'This piece offers flexible styling across different fits and silhouettes.',
+      recommendation: 'Mix with contrasting fits to create dynamic, balanced outfits.'
     }
   }
 
@@ -298,23 +440,58 @@ class LogicAgent {
     const adviceMap = {
       'formal': {
         logic: 'Formal occasions require polished pieces without excessive patterns or casual elements.',
-        recommendation: 'Elevate this piece with tailored bottoms, structured bags, and minimal jewelry.'
+        recommendation: this._getRandomAdviceVariation('formal')
       },
       'business': {
         logic: 'Professional styling emphasizes clean lines, neutral tones, and structured silhouettes.',
-        recommendation: 'Pair with solid-colored trousers or a pencil skirt for a cohesive professional look.'
+        recommendation: this._getRandomAdviceVariation('business')
       },
       'casual': {
         logic: 'Casual wear allows for relaxed fits, patterns, and personal expression.',
-        recommendation: 'Mix with comfortable basics like jeans or casual bottoms for an effortless vibe.'
+        recommendation: this._getRandomAdviceVariation('casual')
       },
       'party': {
         logic: 'Event styling can feature bolder colors, textures, and statement pieces.',
-        recommendation: 'Accessorize with bold jewelry and metallic elements to elevate the look.'
+        recommendation: this._getRandomAdviceVariation('party')
       }
     }
 
     return adviceMap[occasion] || adviceMap['casual']
+  }
+
+  /**
+   * Get random advice variation for occasions
+   */
+  _getRandomAdviceVariation(occasion) {
+    const variations = {
+      'formal': [
+        'Pair with tailored bottoms and structured accessories for maximum elegance.',
+        'Layer with a sophisticated blazer and minimal jewelry for a refined look.',
+        'Combine with polished heels and a structured bag for a formal event.',
+        'Accessorize with classic pieces - think pearls, leather belts, and understated bags.'
+      ],
+      'business': [
+        'Match with neutral-toned trousers or a pencil skirt for professional polish.',
+        'Layer with a blazer and keep accessories minimal and corporate-friendly.',
+        'Pair with smart footwear and a professional bag to complete the look.',
+        'Add a structured cardigan and invest-worthy accessories for power dressing.'
+      ],
+      'casual': [
+        'Style with comfortable jeans or casual bottoms for an effortless vibe.',
+        'Mix with your favorite sneakers and a relaxed bag for everyday comfort.',
+        'Combine with soft fabrics and laid-back accessories for a chill aesthetic.',
+        'Pair with joggers, shorts, or casual bottoms depending on the season.'
+      ],
+      'party': [
+        'Elevate with bold jewelry and statement accessories for impact.',
+        'Layer with metallic accents and eye-catching bags to stand out.',
+        'Pair with heels and glamorous jewelry to make a memorable impression.',
+        'Accessorize with confidence - bold colors, statement pieces, and standout shoes.'
+      ]
+    }
+
+    const options = variations[occasion] || variations['casual']
+    return options[Math.floor(Math.random() * options.length)]
   }
 
   /**
@@ -324,15 +501,44 @@ class LogicAgent {
     const material = (garment.material || 'cotton').toLowerCase()
     
     const adviceMap = {
-      'silk': 'This silk piece requires careful handling - layer with delicate accessories and avoid heavy fabric pairings.',
-      'denim': 'Denim is versatile - dress it up with heels or down with sneakers for multiple occasions.',
-      'cotton': 'Cotton is breathable and casual-friendly - perfect for everyday styling.',
-      'wool': 'Wool provides warmth - balance with lighter fabrics in warmer seasons.',
-      'polyester': 'Polyester is durable and travel-friendly - easy to mix with most pieces.',
-      'linen': 'Linen has natural texture - embrace the relaxed aesthetic for summer styling.'
+      'silk': [
+        'This silk piece has a luxe feel - pair with delicate accessories and lighter fabrics.',
+        'Silk shines with understated styling - avoid heavy pairings that compete with its elegance.',
+        'Layer gently with silk-compatible materials like cotton or linen for sophistication.'
+      ],
+      'denim': [
+        'Denim is incredibly versatile - dress it up with heels or keep it casual with sneakers.',
+        'This denim piece works from day to night - just change your accessories.',
+        'Denim is timeless - style it with anything from blazers to tees depending on your mood.'
+      ],
+      'cotton': [
+        'Cotton is your everyday essential - breathable and endlessly mixable.',
+        'This cotton piece is perfect for layering and mixing with other textures.',
+        'Cotton basics are foundation pieces - build around them with bolder pieces.'
+      ],
+      'wool': [
+        'Wool provides warmth and structure - pair with lighter pieces in warmer seasons.',
+        'This wool piece works beautifully with complementary textures like cotton or linen.',
+        'Wool is timeless - style it across multiple seasons with smart layering.'
+      ],
+      'polyester': [
+        'Polyester is durable and travel-friendly - easy to mix with most pieces.',
+        'This synthetic blend is versatile and low-maintenance for everyday styling.',
+        'Polyester takes color well - make it the focal point of your outfit.'
+      ],
+      'linen': [
+        'Linen has natural texture and movement - embrace its relaxed aesthetic.',
+        'This linen piece is perfect for warm weather - keep styling light and airy.',
+        'Linen pairs beautifully with natural fibers for an effortless summer look.'
+      ]
     }
 
-    return adviceMap[material] || 'This fabric pairs well with most materials - mix freely with other wardrobe pieces.'
+    const options = adviceMap[material] || [
+      'This fabric pairs well with most materials - mix freely with other pieces.',
+      'Experiment with layering to see how this fabric works with different textures.',
+      'This fabric is versatile - style it confidently with pieces from your wardrobe.'
+    ]
+    return options[Math.floor(Math.random() * options.length)]
   }
 
   /**
@@ -340,11 +546,27 @@ class LogicAgent {
    */
   _getLayeringAdvice(garment, allGarments) {
     const style = garment.aesthetic_style || 'Casual'
-    
-    return {
-      logic: `${style} styling often benefits from thoughtful layering to add depth and versatility.`,
-      recommendation: 'Layer this piece with a denim jacket, cardigan, or blazer to create multiple outfit options from one base item.'
-    }
+    const layeringOptions = [
+      { 
+        logic: `${style} pieces benefit from strategic layering to add depth.`,
+        recommendation: 'Try layering with a denim jacket for that perfect casual-cool vibe.'
+      },
+      { 
+        logic: `Building versatility is key with ${style} pieces.`,
+        recommendation: 'Layer with a cardigan or sweater to extend this piece across seasons.'
+      },
+      { 
+        logic: `A well-layered outfit multiplies outfit options.`,
+        recommendation: 'Throw on a blazer for instant polish or keep it relaxed with an overshirt.'
+      },
+      { 
+        logic: `${style} styling works beautifully with thoughtful layering.`,
+        recommendation: 'Add dimension with a light jacket or structured layer underneath.'
+      }
+    ]
+
+    const selection = layeringOptions[Math.floor(Math.random() * layeringOptions.length)]
+    return selection
   }
 
   /**
@@ -405,34 +627,109 @@ class LogicAgent {
   _getShoeRecommendation(garment) {
     const type = garment.garment_type?.toLowerCase() || ''
     const occasion = garment.occasion?.[0] || 'casual'
+    const style = (garment.aesthetic_style || 'casual').toLowerCase()
 
     if (type.includes('dress')) {
-      return 'Heels for formal occasions, ballet flats or loafers for casual wear'
+      const dressShoes = [
+        'strappy heels or elegant ballet flats',
+        'classic pumps or sophisticated mules',
+        'block heels for comfort or sleek stilettos',
+        'ankle strap heels or pointed-toe flats',
+        'kitten heels or trendy slingbacks'
+      ]
+      return dressShoes[Math.floor(Math.random() * dressShoes.length)]
     } else if (type.includes('skirt')) {
-      return 'Boots, loafers, or heels depending on length and occasion'
+      const skirtShoes = [
+        'ankle boots or classic loafers',
+        'knee-high boots or mary jane heels',
+        'sneakers for casual or heels for dressy',
+        'ballet flats or strappy sandals',
+        'platform boots or elegant flats'
+      ]
+      return skirtShoes[Math.floor(Math.random() * skirtShoes.length)]
     } else if (type.includes('pants') || type.includes('jeans')) {
-      return 'Sneakers for casual, loafers or heels for polished looks'
+      const pantsShoes = [
+        'white sneakers or leather loafers',
+        'ankle boots or classic oxfords',
+        'chunky sneakers or sleek flats',
+        'pointed-toe heels or casual slip-ons',
+        'minimalist trainers or heeled mules',
+        'Chelsea boots or trendy platforms'
+      ]
+      return pantsShoes[Math.floor(Math.random() * pantsShoes.length)]
     }
 
-    return 'Choose shoes that match the formality level of the occasion'
+    if (occasion === 'formal') {
+      return ['polished heels or dress shoes', 'elegant pumps or oxford shoes', 'sophisticated heels or loafers'][Math.floor(Math.random() * 3)]
+    } else if (style.includes('street')) {
+      return ['chunky sneakers or high-tops', 'retro trainers or combat boots', 'bold sneakers or platform shoes'][Math.floor(Math.random() * 3)]
+    }
+
+    const casualShoes = [
+      'versatile white sneakers',
+      'casual loafers or slip-ons',
+      'comfortable flats or sandals',
+      'trendy mules or espadrilles',
+      'classic canvas shoes'
+    ]
+    return casualShoes[Math.floor(Math.random() * casualShoes.length)]
   }
 
   /**
    * Bag recommendation logic
    */
   _getBagRecommendation(garment) {
-    const style = garment.aesthetic_style || 'Casual'
+    const style = (garment.aesthetic_style || 'Casual').toLowerCase()
+    const occasion = garment.occasion?.[0] || 'casual'
     
     const styleMap = {
-      'minimalist': 'Simple structured bag in neutral color',
-      'streetwear': 'Crossbody bag or backpack with attitude',
-      'business casual': 'Tote or structured handbag in neutral tones',
-      'y2k': 'Shoulder bag or small tote with personality',
-      'bohemian': 'Woven or fringe bag for relaxed vibe',
-      'preppy': 'Classic tote or saddle bag in coordinating color'
+      'minimalist': [
+        'sleek leather tote in black or beige',
+        'simple crossbody with clean lines',
+        'structured handbag in neutral tone',
+        'minimalist bucket bag or slim shoulder bag'
+      ],
+      'streetwear': [
+        'bold crossbody or utility backpack',
+        'logo belt bag or oversized tote',
+        'sporty sling bag or canvas messenger',
+        'trendy bucket bag with street edge'
+      ],
+      'business casual': [
+        'professional tote or structured satchel',
+        'leather briefcase or elegant handbag',
+        'polished work bag or classic tote',
+        'sophisticated shoulder bag in neutral'
+      ],
+      'y2k': [
+        'mini shoulder bag or colorful baguette',
+        'fun hobo bag or trendy clutch',
+        'retro shoulder bag with personality',
+        'bold colored bag or statement mini'
+      ],
+      'bohemian': [
+        'woven straw bag or fringe crossbody',
+        'slouchy hobo bag or embroidered tote',
+        'natural fiber bag or relaxed bucket bag',
+        'vintage-inspired bag with boho flair'
+      ],
+      'preppy': [
+        'classic tote or saddle bag',
+        'structured handbag or satchel',
+        'timeless shoulder bag in navy or tan',
+        'traditional tote with clean design'
+      ]
     }
 
-    return styleMap[style] || 'Structured handbag or tote in a complementary color'
+    const bags = styleMap[style] || [
+      'versatile crossbody or tote bag',
+      'structured shoulder bag',
+      'everyday handbag or backpack',
+      'practical tote or messenger bag',
+      'casual bucket bag or satchel'
+    ]
+    
+    return bags[Math.floor(Math.random() * bags.length)]
   }
 
   /**
@@ -440,14 +737,59 @@ class LogicAgent {
    */
   _getJewelryRecommendation(garment) {
     const type = garment.garment_type?.toLowerCase() || ''
+    const style = (garment.aesthetic_style || 'casual').toLowerCase()
+    const occasion = garment.occasion?.[0] || 'casual'
 
-    if (type.includes('statement') || garment.details?.includes('embroidery')) {
-      return 'Keep jewelry minimal - let the piece shine'
+    if (type.includes('statement') || garment.details?.includes('embroidery') || garment.details?.includes('pattern')) {
+      const minimalJewelry = [
+        'keep it simple - delicate studs or a thin chain',
+        'minimal jewelry lets the garment be the star',
+        'subtle pieces only - small hoops or dainty bracelet',
+        'understated accessories work best here',
+        'let the piece shine with barely-there jewelry'
+      ]
+      return minimalJewelry[Math.floor(Math.random() * minimalJewelry.length)]
     } else if (type.includes('simple') || type.includes('plain')) {
-      return 'Layer delicate jewelry to add visual interest'
+      const layeredJewelry = [
+        'layer delicate necklaces for visual interest',
+        'stack rings and bracelets to add dimension',
+        'mix metals with layered chains and hoops',
+        'create depth with multiple delicate pieces',
+        'add personality with stacked jewelry',
+        'embrace the layered look with mixed pieces'
+      ]
+      return layeredJewelry[Math.floor(Math.random() * layeredJewelry.length)]
     }
 
-    return 'Choose jewelry that complements without competing with the outfit'
+    if (occasion === 'formal') {
+      const formalJewelry = [
+        'classic pearls or diamond studs',
+        'elegant drop earrings or tennis bracelet',
+        'timeless pieces in gold or silver',
+        'sophisticated studs with delicate necklace'
+      ]
+      return formalJewelry[Math.floor(Math.random() * formalJewelry.length)]
+    } else if (occasion === 'party') {
+      const partyJewelry = [
+        'bold statement earrings or cocktail rings',
+        'dramatic pieces that catch the light',
+        'chunky bracelets or eye-catching necklace',
+        'sparkle with oversized hoops or gemstones',
+        'go big with shoulder-dusting earrings'
+      ]
+      return partyJewelry[Math.floor(Math.random() * partyJewelry.length)]
+    }
+
+    const casualJewelry = [
+      'everyday hoops and layered necklaces',
+      'mixed metals for effortless cool',
+      'stackable rings and simple chains',
+      'comfortable pieces you can wear daily',
+      'trendy ear cuffs or classic studs',
+      'personalized pieces that tell your story',
+      'fun, playful jewelry that matches your vibe'
+    ]
+    return casualJewelry[Math.floor(Math.random() * casualJewelry.length)]
   }
 
   /**
@@ -484,6 +826,40 @@ class LogicAgent {
     score += Math.min(recommendations.length * 2, 10)
 
     return Math.min(score, 100)
+  }
+
+  /**
+   * Get random color pairing phrase for variety
+   */
+  _getRandomColorPhrase() {
+    const phrases = [
+      'pairs beautifully with',
+      'works well with',
+      'looks stunning with',
+      'complements',
+      'goes great with',
+      'harmonizes with',
+      'creates a perfect match with',
+      'shines alongside'
+    ]
+    return phrases[Math.floor(Math.random() * phrases.length)]
+  }
+
+  /**
+   * Get random pairing suggestion phrase for variety
+   */
+  _getRandomPairingPhrase() {
+    const phrases = [
+      'Try pairing',
+      'Consider styling',
+      'Combine',
+      'Match',
+      'Wear',
+      'Layer this with',
+      'Style',
+      'Complement this with'
+    ]
+    return phrases[Math.floor(Math.random() * phrases.length)]
   }
 }
 

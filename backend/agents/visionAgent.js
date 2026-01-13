@@ -12,7 +12,7 @@ class VisionAgent {
   constructor(apiKey) {
     this.apiKey = apiKey || process.env.GOOGLE_AI_API_KEY || 'AIzaSyCYzJDlnvVp7QG7hC9WkQDs1SMPcUzQ2c0'
     this.genAI = new GoogleGenerativeAI(this.apiKey)
-    this.model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+    this.model = this.genAI.getGenerativeModel({ model: 'gemini-pro-vision' })
   }
 
   /**
@@ -35,22 +35,25 @@ class VisionAgent {
           : imageData
       }
 
-      const prompt = `Analyze this clothing image and provide a detailed JSON response with the following structure:
+      const prompt = `You are a fashion expert analyzing a clothing item. Please examine this image carefully and provide a detailed JSON response.
+
+IMPORTANT: Focus especially on identifying the PRIMARY COLOR of the garment clearly and explicitly.
+
 {
-  "garment_type": "specific type of garment (e.g., maxi skirt, oversized blazer, crop top)",
-  "material": "primary material (e.g., cotton, denim, silk, polyester, wool)",
-  "primary_colour": "primary color name (e.g., Navy Blue, Forest Green, Crimson Red, Beige)",
-  "secondary_colours": ["list of other prominent color names"],
-  "aesthetic_style": "fashion style category (e.g., Y2K, Business Casual, Streetwear, Minimalist, Bohemian, Preppy, Grunge)",
-  "fit": "how it fits (e.g., oversized, fitted, relaxed, bodycon)",
-  "occasion": "suitable occasions (e.g., casual, formal, party, work)",
-  "condition": "garment condition (new, gently used, vintage)",
+  "garment_type": "specific type of garment (e.g., maxi skirt, oversized blazer, crop top, t-shirt, dress, jacket)",
+  "material": "primary material (e.g., cotton, denim, silk, polyester, wool, linen)",
+  "primary_colour": "MAIN COLOR NAME - use specific, clear color names like: Red, Blue, Green, Yellow, Pink, Purple, Orange, Brown, Black, White, Gray, Navy, Burgundy, Forest Green, Cream, Beige, Khaki, Olive, Teal, Indigo, Crimson, Rose, Amber, Sage, Charcoal, Tan, Rust, Gold, Silver, Platinum, Mauve, Lavender, Coral, Peach, Blush, Mint, Turquoise, Cyan, Magenta, Fuchsia, Violet. Pick the MOST VISIBLE main color.",
+  "secondary_colours": ["list of other prominent color names using the same color name convention"],
+  "aesthetic_style": "fashion style category (e.g., Y2K, Business Casual, Streetwear, Minimalist, Bohemian, Preppy, Grunge, Casual, Formal)",
+  "fit": "how it fits (e.g., oversized, fitted, relaxed, bodycon, loose, slim, wide-leg)",
+  "occasion": ["suitable occasions (e.g., casual, formal, party, work, summer, winter)"],
+  "condition": "garment condition (new, gently used, vintage, well-loved)",
   "size_apparent": "perceived size range (XS, S, M, L, XL, XXL)",
-  "details": "notable design details (e.g., pockets, buttons, zippers, patterns, embroidery)",
+  "details": "notable design details (e.g., pockets, buttons, zippers, patterns, embroidery, graphics, stripes, plaid, solid)",
   "versatility_score": "1-10 rating for outfit versatility"
 }
 
-Use descriptive color names that people can easily understand. Return ONLY valid JSON, no additional text.`
+Return ONLY valid JSON, no additional text or explanation.`
 
       const imagePart = {
         inlineData: {
@@ -63,20 +66,31 @@ Use descriptive color names that people can easily understand. Return ONLY valid
       const response = await result.response
       const responseText = response.text()
 
+      console.log('[VisionAgent] Raw API Response:', responseText.substring(0, 200))
+
       // Parse JSON response
       const jsonMatch = responseText.match(/\{[\s\S]*\}/)
       if (!jsonMatch) {
+        console.error('[VisionAgent] Failed to extract JSON from response:', responseText)
         throw new Error('Failed to extract JSON from vision response')
       }
 
       const garmentData = JSON.parse(jsonMatch[0])
+      
+      console.log('[VisionAgent] Parsed Garment Data:', {
+        garment_type: garmentData.garment_type,
+        primary_colour: garmentData.primary_colour,
+        secondary_colours: garmentData.secondary_colours,
+        material: garmentData.material
+      })
+
       return {
         success: true,
         data: garmentData,
         raw_response: responseText
       }
     } catch (error) {
-      console.error('Vision Agent Error:', error)
+      console.error('[VisionAgent] Error analyzing clothing:', error.message)
       return {
         success: false,
         error: error.message,

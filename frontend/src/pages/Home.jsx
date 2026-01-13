@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import ChatWindow from '../components/ChatWindow'
 import UploadCard from '../components/UploadCard'
 import OutfitResult from '../components/OutfitResult'
@@ -6,11 +7,13 @@ import Loader from '../components/Loader'
 import { sendStylistRequest } from '../api/stylistApi'
 
 export default function Home() {
+  const navigate = useNavigate()
   const [uploadedImages, setUploadedImages] = useState([])
   const [chatMessages, setChatMessages] = useState([])
   const [loading, setLoading] = useState(false)
   const [currentOutfit, setCurrentOutfit] = useState(null)
   const [userInput, setUserInput] = useState('')
+  const [location, setLocation] = useState('')
   const chatEndRef = useRef(null)
 
   // Auto-scroll to latest message
@@ -48,12 +51,25 @@ export default function Home() {
     setLoading(true)
 
     try {
+      // Require location for weather-aware recommendations
+      if (!location.trim()) {
+        const promptMsg = {
+          id: Date.now() + 1,
+          role: 'assistant',
+          content: 'Please share your city (e.g., Lagos) so I can tailor your outfit to today’s weather.',
+        }
+        setChatMessages(prev => [...prev, promptMsg])
+        setLoading(false)
+        return
+      }
+
       // Prepare form data for API request
       const formData = new FormData()
       formData.append('message', userInput)
       formData.append('context', JSON.stringify({
         uploadedCount: uploadedImages.length,
-        previousMessages: chatMessages.length
+        previousMessages: chatMessages.length,
+        location: location.trim()
       }))
 
       // Add images to form data
@@ -104,6 +120,15 @@ export default function Home() {
       {/* Header */}
       <header className="bg-gradient-to-r from-white to-purple-50 border-b border-gray-100 px-6 py-3 shadow-sm">
         <div className="max-w-6xl mx-auto flex items-center gap-3">
+          <button 
+            onClick={() => navigate('/')}
+            className="p-2 hover:bg-purple-100 rounded-lg transition-colors mr-2"
+            aria-label="Go back to home"
+          >
+            <svg className="w-6 h-6 text-[#6C5CE7]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+          </button>
           <img src="/Screenshot_2026-01-13_092018-removebg-preview.png" alt="Pixie Stylist Logo" className="h-8 w-8 object-contain" />
           <div>
             <h1 className="text-xl font-bold text-[#6C5CE7]">
@@ -139,6 +164,14 @@ export default function Home() {
 
           {/* Input Field */}
           <div className="bg-white rounded-xl shadow-sm p-4 space-y-3">
+            <input
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="City for weather (required)"
+              className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-[#6C5CE7] focus:ring-2 focus:ring-[#6C5CE7] focus:ring-opacity-20"
+              disabled={loading}
+            />
             <textarea
               value={userInput}
               onChange={(e) => setUserInput(e.target.value)}
