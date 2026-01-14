@@ -13,6 +13,18 @@ import { GoogleGenAI } from "@google/genai";
 
 dotenv.config();
 
+
+// Put this near the top after dotenv.config()
+const GEMINI_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY;
+
+if (!GEMINI_KEY) {
+  console.warn("⚠️ No Gemini key found. Set GEMINI_API_KEY in Render env.");
+}
+
+// IMPORTANT: pass apiKey explicitly so it works on Render
+const ai = new GoogleGenAI({ apiKey: GEMINI_KEY });
+
+
 const app = express();
 const PORT = process.env.PORT || 10000;
 
@@ -55,18 +67,7 @@ const upload = multer({
 });
 
 // ---- Gemini client (API key from env) ----
-if (!process.env.GEMINI_API_KEY) {
-  console.warn(
-    "⚠️ GEMINI_API_KEY is missing. Set it in Render environment variables."
-  );
-}
 
-
-if (!GEMINI_KEY) {
-  console.warn("⚠️ No Gemini key found. Set GEMINI_API_KEY in Render env.");
-}
-
-const ai = new GoogleGenAI({ apiKey: GEMINI_KEY });
 
 // ---- Helpers ----
 function safeJsonParse(str, fallback = null) {
