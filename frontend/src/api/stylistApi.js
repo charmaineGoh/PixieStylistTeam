@@ -3,8 +3,10 @@
  * Handles all communication with the n8n orchestrator and backend agents
  */
 
-// Use relative path to leverage Vite proxy in dev mode
-const API_BASE_URL = '/api'
+// Use environment variable for production, fallback to proxy path for dev
+const API_BASE_URL = import.meta.env.VITE_API_URL 
+  ? `${import.meta.env.VITE_API_URL}/api`
+  : '/api'
 
 /**
  * Send stylist request to backend orchestrator
