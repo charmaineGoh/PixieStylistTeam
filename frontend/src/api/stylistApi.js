@@ -34,7 +34,7 @@ export async function sendStylistRequest(formData) {
       method: 'POST',
       body: formData,
       headers: {
-        'Authorization': `Bearer ${process.env.VITE_API_KEY || 'mock-api-key'}`,
+        'Authorization': `Bearer ${process.env.VITE_API_KEY || 'https://pixiestylistss.onrender.com/'}`,
       }
     })
 
@@ -65,7 +65,7 @@ export async function uploadImageForAnalysis(imageFile) {
       method: 'POST',
       body: formData,
       headers: {
-        'Authorization': `Bearer ${process.env.VITE_API_KEY || 'mock-api-key'}`,
+        'Authorization': `Bearer ${process.env.VITE_API_KEY || 'https://pixiestylistss.onrender.com/'}`,
       }
     })
 
@@ -91,7 +91,7 @@ export async function getOutfitRecommendations(context) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.VITE_API_KEY || 'mock-api-key'}`,
+        'Authorization': `Bearer ${process.env.VITE_API_KEY || 'https://pixiestylistss.onrender.com/'}`,
       },
       body: JSON.stringify(context)
     })
@@ -118,7 +118,7 @@ export async function getContextualData(location) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.VITE_API_KEY || 'mock-api-key'}`,
+        'Authorization': `Bearer ${process.env.VITE_API_KEY || 'https://pixiestylistss.onrender.com/'}`,
       },
       body: JSON.stringify({ location })
     })
@@ -145,7 +145,7 @@ export async function generateOutfitImage(prompt) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.VITE_API_KEY || 'mock-api-key'}`,
+        'Authorization': `Bearer ${process.env.VITE_API_KEY || 'https://pixiestylistss.onrender.com/'}`,
       },
       body: JSON.stringify({ prompt })
     })
