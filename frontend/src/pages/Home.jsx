@@ -81,18 +81,29 @@ export default function Home() {
       const response = await sendStylistRequest(formData)
 
       // Add assistant response to chat
-      const assistantMessage = {
-        id: Date.now() + 1,
-        role: 'assistant',
-        content: response.explanation,
-        outfit: {
-          explanation: response.explanation,
-          logic: response.logic,
-          weatherAdjustment: response.weatherAdjustment,
-          generatedImage: response.generatedImage,
-          recommendations: response.recommendations
-        }
-      }
+const explanation =
+  response?.explanation ??
+  response?.result?.explanation ??
+  response?.data?.explanation ??
+  response?.message ??
+  response?.output ??
+  response?.text ??
+  '';
+
+const assistantMessage = {
+  id: Date.now() + 1,
+  role: 'assistant',
+  content: explanation || 'I received a response but it was empty.',
+  images: [],
+  outfit: {
+    explanation: response?.explanation ?? explanation,
+    logic: response?.logic ?? response?.result?.logic ?? '',
+    weatherAdjustment: response?.weatherAdjustment ?? response?.result?.weatherAdjustment ?? '',
+    generatedImage: response?.generatedImage ?? response?.imageUrl ?? '',
+    recommendations: response?.recommendations ?? response?.tips ?? []
+  }
+};
+
 
       setChatMessages(prev => [...prev, assistantMessage])
       setCurrentOutfit(assistantMessage.outfit)
