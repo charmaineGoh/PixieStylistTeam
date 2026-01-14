@@ -1,503 +1,218 @@
 /**
- * Pixie Stylist Backend Server
- * Express server with RESTful API endpoints
- * Orchestrates calls to n8n and specialized AI agents
+ * Pixie Stylist Backend (Gemini / Google AI Studio)
+ * POST /api/stylist/recommend
+ * - Accepts multipart/form-data: images[] + location + message
+ * - Returns: { explanation, logic, weatherAdjustment, recommendations, generatedImage? }
  */
 
-import express from 'express'
-import cors from 'cors'
-import multer from 'multer'
-import { fileURLToPath } from 'url'
-import { dirname } from 'path'
-import dotenv from 'dotenv'
-import { v4 as uuidv4 } from 'uuid'
-import fs from 'fs'
-import path from 'path'
+import express from "express";
+import cors from "cors";
+import multer from "multer";
+import dotenv from "dotenv";
+import { GoogleGenAI } from "@google/genai";
 
-// Import agents
-import VisionAgent from './agents/visionAgent.js'
-import LogicAgent from './agents/logicAgent.js'
-import ContextAgent from './agents/contextAgent.js'
-import ImageGenerationAgent from './agents/imageAgent.js'
+dotenv.config();
 
-// Load environment variables
-dotenv.config()
+const app = express();
+const PORT = process.env.PORT || 10000;
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
+// ---- CORS (adjust as needed) ----
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "http://localhost:5174",
+      "https://pixie-stylist.onrender.com",
+      "https://pixiestylistss.onrender.com",
+    ],
+    methods: ["GET", "POST", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 
-// Initialize Express app
-const app = express()
-const PORT = process.env.PORT || 3001
+app.use(express.json());
 
-// Middleware
-const allowedOrigins = [
-  'http://localhost:5173',
-  process.env.FRONTEND_URL
-].filter(Boolean)
-
-app.use(cors({
-  origin: [
-    "https://pixie-stylist.onrender.com"
-  ],
-  methods: ["GET", "POST"],
-  credentials: false
-}));
-app.use(express.json({ limit: '10mb' }))
-app.use(express.urlencoded({ limit: '10mb', extended: true }))
-
-// Configure multer for file uploads
-const storage = multer.memoryStorage()
+// ---- Multer (memory storage for images) ----
 const upload = multer({
-  storage: storage,
+  storage: multer.memoryStorage(),
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB
-    files: 10
+    fileSize: 8 * 1024 * 1024, // 8MB each
+    files: 5,
   },
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true)
-    } else {
-      cb(new Error('Only image files are allowed'))
-    }
+});
+
+// ---- Gemini client (API key from env) ----
+if (!process.env.GEMINI_API_KEY) {
+  console.warn(
+    "⚠️ GEMINI_API_KEY is missing. Set it in Render environment variables."
+  );
+}
+const ai = new GoogleGenAI({}); // picks up GEMINI_API_KEY from env :contentReference[oaicite:1]{index=1}
+
+// ---- Helpers ----
+function safeJsonParse(str, fallback = null) {
+  try {
+    return JSON.parse(str);
+  } catch {
+    return fallback;
   }
-})
+}
 
-// Initialize agents
-const visionAgent = new VisionAgent()
-const logicAgent = new LogicAgent()
-const contextAgent = new ContextAgent()
-const imageAgent = new ImageGenerationAgent()
+function buildResponseSchema() {
+  // Gemini structured output schema (JSON Schema subset) :contentReference[oaicite:2]{index=2}
+  return {
+    type: "object",
+    properties: {
+      explanation: {
+        type: "string",
+        description:
+          "Outfit Overview: friendly summary describing the recommended outfit(s) and what pairs well with the uploaded item(s).",
+      },
+      logic: {
+        type: "string",
+        description:
+          "Styling Logic: explain why the pieces work together (color harmony, silhouette, proportion, occasion).",
+      },
+      weatherAdjustment: {
+        type: "string",
+        description:
+          "Weather & Trends: suggestions tailored to the user's location (country/city). Mention breathable fabrics, layers, rain/heat, and a light trend note.",
+      },
+      recommendations: {
+        type: "array",
+        description:
+          "Quick actionable tips (bulleted as strings), like accessories, shoes, colors, do/don’t.",
+        items: { type: "string" },
+      },
+      generatedImage: {
+        type: ["string", "null"],
+        description:
+          "Optional URL if you generate an image elsewhere. Otherwise null.",
+      },
+    },
+    required: ["explanation", "logic", "weatherAdjustment", "recommendations"],
+    additionalProperties: false,
+  };
+}
 
-// Session store (in-memory for MVP; use Redis in production)
-const sessionStore = new Map()
+function buildPrompt({ location, message, imageCount }) {
+  const locText = location?.trim() ? location.trim() : "unknown location";
 
-// =====================================
-// ROUTES
-// =====================================
+  return `
+You are Pixie Stylist, an expert fashion stylist.
 
-/**
- * Health check endpoint
- */
-app.get('/api/health', (req, res) => {
+Inputs:
+- Location (country/city): ${locText}
+- User message: ${message || "(no message provided)"}
+- Number of uploaded images: ${imageCount}
+
+Task:
+1) Identify the clothing item(s) in the image(s): color, category (top/bottom/dress/shoes), material vibe, style (casual, smart, streetwear, formal).
+2) Recommend outfit combinations that pair well with the uploaded item(s).
+3) Provide:
+   - Outfit Overview (explanation): 1–2 outfit options + what pairs well.
+   - Styling Logic (logic): why it works (color palette, silhouette, balance, occasion).
+   - Weather & Trends (weatherAdjustment): adapt to ${locText}. If location is hot/humid, recommend breathable fabrics; if rainy, practical layers; if cold, layering advice. Add 1 short trend note.
+   - Quick Tips (recommendations): 5–8 tips (shoes, bag, accessories, colors, optional alt pieces).
+
+Output MUST match the JSON schema exactly. No markdown. No extra keys.
+Make it practical and specific.
+`;
+}
+
+// ---- Routes ----
+app.get("/api/health", (req, res) => {
   res.json({
-    status: 'healthy',
+    status: "healthy",
     timestamp: new Date().toISOString(),
-    version: '1.0.0'
-  })
-})
+    version: "1.0.0",
+  });
+});
 
-/**
- * Main stylist recommendation endpoint
- * Orchestrates via n8n workflow (or direct agents if n8n unavailable)
- */
-app.post('/api/stylist/recommend', upload.any(), async (req, res) => {
-  try {
-    const sessionId = uuidv4()
-    const userMessage = req.body.message || ''
-    const context = req.body.context ? JSON.parse(req.body.context) : {}
-    const images = req.files || []
+app.post(
+  "/api/stylist/recommend",
+  upload.array("images", 5), // Frontend should append("images", file)
+  async (req, res) => {
+    try {
+      const location =
+        req.body.location ||
+        safeJsonParse(req.body.context)?.location ||
+        "";
+      const message = req.body.message || "";
 
-    console.log(`[${sessionId}] New recommendation request:`, {
-      messageLength: userMessage.length,
-      imageCount: images.length,
-      context
-    })
-
-    // Try n8n workflow first
-    const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL
-    
-    if (n8nWebhookUrl) {
-      try {
-        console.log(`[${sessionId}] Routing to n8n workflow...`)
-        
-        // Create FormData for n8n
-        const formData = new FormData()
-        formData.append('message', userMessage)
-        formData.append('context', JSON.stringify(context))
-        
-        images.forEach((img, index) => {
-          formData.append(`image_${index}`, new Blob([img.buffer], { type: img.mimetype }), img.originalname)
-        })
-
-        const n8nResponse = await fetch(n8nWebhookUrl, {
-          method: 'POST',
-          body: formData
-        })
-
-        if (n8nResponse.ok) {
-          const result = await n8nResponse.json()
-          console.log(`[${sessionId}] n8n workflow completed`)
-          
-          // Store session for follow-up requests
-          sessionStore.set(sessionId, {
-            ...result,
-            context: context,
-            timestamp: new Date()
-          })
-
-          return res.json({
-            success: true,
-            session_id: sessionId,
-            ...result
-          })
-        }
-      } catch (n8nError) {
-        console.warn(`[${sessionId}] n8n unavailable, falling back to direct agents:`, n8nError.message)
-        // Fall through to direct agent orchestration
+      const files = req.files || [];
+      if (!files.length && !message.trim()) {
+        return res.status(400).json({
+          success: false,
+          error: "Please provide at least one image or a message.",
+        });
       }
-    }
 
-    // Fallback: Direct agent orchestration
-    console.log(`[${sessionId}] Using direct agent orchestration...`)
+      // Build Gemini contents: images + prompt text
+      // For inline image data, Gemini expects base64 in inlineData :contentReference[oaicite:3]{index=3}
+      const contents = [];
 
-    // 1. Vision Agent: Analyze uploaded images
-    let garmentAnalyses = []
-    if (images.length > 0) {
-      console.log(`[${sessionId}] Running Vision Agent...`)
-      
-      const imageAnalyses = await Promise.all(
-        images.map(img => visionAgent.analyzeClothing(img.buffer, img.mimetype))
-      )
-      
-      console.log(`[${sessionId}] Vision Agent Results:`, JSON.stringify(imageAnalyses, null, 2))
-      
-      garmentAnalyses = imageAnalyses
-        .filter(analysis => analysis.success)
-        .map(analysis => analysis.data)
-
-      console.log(`[${sessionId}] Vision Agent completed: ${garmentAnalyses.length} items analyzed`)
-      console.log(`[${sessionId}] Analyzed garments:`, JSON.stringify(garmentAnalyses.map(g => ({ type: g.garment_type, color: g.primary_colour })), null, 2))
-    }
-
-    // Generate randomized fallback garment if vision analysis failed
-    const getRandomFallbackGarment = () => {
-      const garmentTypes = ['casual top', 'stylish shirt', 'trendy pants', 'versatile dress', 'classic jacket', 'modern blouse', 'comfortable tee', 'chic skirt']
-      const styles = ['minimalist', 'casual', 'modern', 'streetwear', 'preppy', 'bohemian', 'business casual', 'Y2K']
-      const colors = ['Black', 'White', 'Navy', 'Gray', 'Beige', 'Red', 'Blue', 'Green', 'Pink', 'Brown']
-      const fits = ['fitted', 'relaxed', 'oversized', 'loose', 'bodycon']
-      const occasions = ['casual', 'formal', 'party', 'work']
-      
-      return {
-        garment_type: garmentTypes[Math.floor(Math.random() * garmentTypes.length)],
-        aesthetic_style: styles[Math.floor(Math.random() * styles.length)],
-        primary_colour: colors[Math.floor(Math.random() * colors.length)],
-        fit: fits[Math.floor(Math.random() * fits.length)],
-        occasion: [occasions[Math.floor(Math.random() * occasions.length)]],
-        material: 'cotton'
+      for (const f of files) {
+        const mimeType = f.mimetype || "image/jpeg";
+        const base64 = f.buffer.toString("base64");
+        contents.push({
+          inlineData: {
+            mimeType,
+            data: base64,
+          },
+        });
       }
-    }
 
-    // 2. Logic Agent: Generate outfit recommendations
-    console.log(`[${sessionId}] Running Logic Agent...`)
-    const fallbackGarment = garmentAnalyses.length > 0 ? garmentAnalyses : [getRandomFallbackGarment()]
-    console.log(`[${sessionId}] Passing to Logic Agent:`, JSON.stringify(fallbackGarment, null, 2))
-    
-    const logicResult = await logicAgent.generateRecommendations(
-      fallbackGarment,
-      { occasion: context.occasion || 'casual' }
-    )
+      contents.push({
+        text: buildPrompt({
+          location,
+          message,
+          imageCount: files.length,
+        }),
+      });
 
-    console.log(`[${sessionId}] Logic Agent completed`)
-    console.log(`[${sessionId}] Logic Result:`, JSON.stringify(logicResult, null, 2))
+      // Ask Gemini for structured JSON output :contentReference[oaicite:4]{index=4}
+      const response = await ai.models.generateContent({
+        model: process.env.GEMINI_MODEL || "gemini-3-flash-preview",
+        contents,
+        config: {
+          responseMimeType: "application/json",
+          responseJsonSchema: buildResponseSchema(),
+          temperature: 0.7,
+        },
+      });
 
-    // 3. Context Agent: Get weather and trends
-    console.log(`[${sessionId}] Running Context Agent...`)
-    const city = context.location || 'New York'
-    const contextResult = await contextAgent.adjustOutfitForWeather(
-      logicResult,
-      city
-    )
+      const text = response?.text || "";
+      const data = safeJsonParse(text);
 
-    console.log(`[${sessionId}] Context Agent completed`)
-
-    // 4. Image Generation Agent: Create outfit visualization
-    console.log(`[${sessionId}] Running Image Generation Agent...`)
-    const generatedImageUrl = await imageAgent.generateOutfitImage(
-      logicResult,
-      {
-        occasion: context.occasion || 'casual',
-        location: city
+      if (!data) {
+        // Fallback if model returned something unexpected
+        return res.status(502).json({
+          success: false,
+          error: "Gemini returned non-JSON output.",
+          raw: text,
+        });
       }
-    )
 
-    console.log(`[${sessionId}] Image Generation Agent completed`)
-
-    // Compile final response
-    const response = {
-      success: true,
-      session_id: sessionId,
-      timestamp: new Date().toISOString(),
-      explanation: `${logicResult.styling_logic}. Consider these styling tips for best results.`,
-      logic: `Based on the ${garmentAnalyses.length > 0 ? 'analyzed garments' : 'your preferences'}, ${logicResult.styling_logic}`,
-      weatherAdjustment: contextResult.success 
-        ? contextResult.contextual_notes 
-        : 'Style for any weather with versatile layering pieces.',
-      generatedImage: generatedImageUrl,
-      recommendations: logicResult.recommendations || [],
-      garmentAnalysis: garmentAnalyses,
-      colorAnalysis: logicResult.color_analysis,
-      confidenceScore: logicResult.confidence_score,
-      trends: contextResult.success ? contextResult.current_trends : [],
-      metadata: {
-        agentsUsed: ['vision', 'logic', 'context', 'image_generation'],
-        processingTime: `${Date.now() - new Date().getTime()}ms`
-      }
-    }
-
-    // Store session for follow-up requests
-    sessionStore.set(sessionId, {
-      ...response,
-      images: garmentAnalyses,
-      context: context,
-      timestamp: new Date()
-    })
-
-    res.json(response)
-
-  } catch (error) {
-    console.error('Error in recommendation pipeline:', error)
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      timestamp: new Date().toISOString()
-    })
-  }
-})
-
-/**
- * Vision agent endpoint (standalone)
- */
-app.post('/api/vision/analyze', upload.single('image'), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({
+      return res.json({
+        success: true,
+        ...data,
+      });
+    } catch (err) {
+      console.error("❌ /api/stylist/recommend error:", err);
+      return res.status(500).json({
         success: false,
-        error: 'No image provided'
-      })
+        error: err?.message || "Internal Server Error",
+      });
     }
-
-    const result = await visionAgent.analyzeClothing(req.file.buffer, req.file.mimetype)
-    res.json(result)
-
-  } catch (error) {
-    console.error('Vision API Error:', error)
-    res.status(500).json({
-      success: false,
-      error: error.message
-    })
   }
-})
+);
 
-/**
- * Logic agent endpoint (standalone)
- */
-app.post('/api/logic/recommend', express.json(), async (req, res) => {
-  try {
-    const { garments, context } = req.body
-
-    if (!garments || garments.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'Garments data required'
-      })
-    }
-
-    const result = await logicAgent.generateRecommendations(garments, context || {})
-    res.json(result)
-
-  } catch (error) {
-    console.error('Logic API Error:', error)
-    res.status(500).json({
-      success: false,
-      error: error.message
-    })
-  }
-})
-
-/**
- * Context agent endpoint (standalone)
- */
-app.post('/api/context/data', express.json(), async (req, res) => {
-  try {
-    const { location, season } = req.body
-
-    const weather = await contextAgent.getWeather(location || 'New York')
-    const trends = await contextAgent.getTrends(location || 'global', season)
-
-    res.json({
-      success: true,
-      weather: weather,
-      trends: trends
-    })
-
-  } catch (error) {
-    console.error('Context API Error:', error)
-    res.status(500).json({
-      success: false,
-      error: error.message
-    })
-  }
-})
-
-/**
- * Image generation endpoint (standalone)
- */
-app.post('/api/generate/image', express.json(), async (req, res) => {
-  try {
-    const { outfit, context, options } = req.body
-
-    if (!outfit) {
-      return res.status(400).json({
-        success: false,
-        error: 'Outfit data required'
-      })
-    }
-
-    const imageUrl = await imageAgent.generateOutfitImage(
-      outfit,
-      context || {},
-      options || {}
-    )
-
-    res.json({
-      success: true,
-      imageUrl: imageUrl,
-      timestamp: new Date().toISOString()
-    })
-
-  } catch (error) {
-    console.error('Image Generation API Error:', error)
-    res.status(500).json({
-      success: false,
-      error: error.message
-    })
-  }
-})
-
-/**
- * Get session history
- */
-app.get('/api/session/:sessionId', (req, res) => {
-  try {
-    const { sessionId } = req.params
-    const session = sessionStore.get(sessionId)
-
-    if (!session) {
-      return res.status(404).json({
-        success: false,
-        error: 'Session not found'
-      })
-    }
-
-    res.json({
-      success: true,
-      session: session
-    })
-
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message
-    })
-  }
-})
-
-/**
- * Test wardrobe analysis endpoint
- */
-app.post('/api/wardrobe/analyze', upload.array('images', 20), async (req, res) => {
-  try {
-    if (!req.files || req.files.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'No images provided'
-      })
-    }
-
-    const images = req.files.map(f => ({
-      data: f.buffer,
-      mime: f.mimetype
-    }))
-
-    const wardrobeProfile = await visionAgent.createWardrobeProfile(
-      images.map(img => img.data)
-    )
-
-    res.json(wardrobeProfile)
-
-  } catch (error) {
-    console.error('Wardrobe Analysis Error:', error)
-    res.status(500).json({
-      success: false,
-      error: error.message
-    })
-  }
-})
-
-/**
- * Error handling middleware
- */
-app.use((err, req, res, next) => {
-  console.error('Unhandled Error:', err)
-  
-  if (err instanceof multer.MulterError) {
-    return res.status(400).json({
-      success: false,
-      error: `Upload error: ${err.message}`
-    })
-  }
-
-  res.status(500).json({
-    success: false,
-    error: 'Internal server error',
-    message: process.env.NODE_ENV === 'development' ? err.message : undefined
-  })
-})
-
-/**
- * 404 handler
- */
-app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    error: 'Endpoint not found',
-    path: req.path,
-    method: req.method
-  })
-})
-
-// =====================================
-// SERVER STARTUP
-// =====================================
+// Optional: handle root so it doesn't show "Endpoint not found"
+app.get("/", (req, res) => {
+  res.send("Pixie Stylist Backend is running. Use /api/health");
+});
 
 app.listen(PORT, () => {
-  console.log(`
-╔════════════════════════════════════════╗
-║   Pixie Stylist Backend Server         ║
-║   Version: 1.0.0                       ║
-╚════════════════════════════════════════╝
-
-Server running on: http://localhost:${PORT}
-Environment: ${process.env.NODE_ENV || 'development'}
-Frontend: ${process.env.FRONTEND_URL || 'http://localhost:5173'}
-
-Available endpoints:
-  POST /api/stylist/recommend       - Main recommendation pipeline
-  POST /api/vision/analyze          - Vision analysis
-  POST /api/logic/recommend         - Outfit logic
-  POST /api/context/data            - Weather & trends
-  POST /api/generate/image          - Image generation
-  GET  /api/health                  - Health check
-
-Ready to style! ✨
-  `)
-})
-
-// Graceful shutdown
-process.on('SIGINT', () => {
-  console.log('\nShutting down gracefully...')
-  process.exit(0)
-})
-
-export { app, visionAgent, logicAgent, contextAgent, imageAgent }
+  console.log(`✅ Server running on port ${PORT}`);
+});
