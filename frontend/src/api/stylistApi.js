@@ -4,9 +4,13 @@
  */
 
 // Use environment variable for production, fallback to proxy path for dev
-const API_BASE_URL = import.meta.env.VITE_API_URL 
-  ? `${import.meta.env.VITE_API_URL}/api`
-  : '/api'
+const API_BASE = import.meta.env.VITE_API_URL;
+
+await fetch(`${API_BASE}/api/stylist/recommend`, {
+  method: "POST",
+  body: formData
+});
+
 
 /**
  * Send stylist request to backend orchestrator
