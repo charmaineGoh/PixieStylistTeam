@@ -1,14 +1,13 @@
 /**
  * API Client for Pixie Stylist Backend
- * Handles all communication with the n8n orchestrator and backend agents
  */
 
-// Use environment variable for production, fallback to proxy path for dev
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
-
-
-async function getRecommendation(formData) {
+/**
+ * Send stylist request to backend
+ */
+export async function sendStylistRequest(formData) {
   const response = await fetch(
     `${API_BASE_URL}/api/stylist/recommend`,
     {
@@ -17,163 +16,100 @@ async function getRecommendation(formData) {
     }
   );
 
+  if (!response.ok) {
+    throw new Error(`Stylist API Error: ${response.status}`);
+  }
+
   return response.json();
 }
 
-
-
 /**
- * Send stylist request to backend orchestrator
- * @param {FormData} formData - Contains user message, context, and image files
- * @returns {Promise<Object>} - Outfit recommendation response
- */
-export async function sendStylistRequest(formData) {
-  try {
-    console.log('📤 Sending stylist request to:', `${API_BASE_URL}/stylist/recommend`)
-    const response = await fetch(`${API_BASE_URL}/stylist/recommend`, {
-      method: 'POST',
-      body: formData,
-      headers: {
-        'Authorization': `Bearer ${process.env.VITE_API_KEY || 'https://pixiestylistss.onrender.com/'}`,
-      }
-    })
-
-    if (!response.ok) {
-      throw new Error(`API Error: ${response.statusText}`)
-    }
-
-    const data = await response.json()
-    console.log('✅ Received response:', data)
-    return data
-  } catch (error) {
-    console.error('❌ Stylist API Error:', error)
-    throw error
-  }
-}
-
-/**
- * Upload image for vision analysis (used by backend)
- * @param {File} imageFile - Image file to analyze
- * @returns {Promise<Object>} - Vision analysis result with garment metadata
+ * Upload image for vision analysis
  */
 export async function uploadImageForAnalysis(imageFile) {
-  const formData = new FormData()
-  formData.append('image', imageFile)
+  const formData = new FormData();
+  formData.append("image", imageFile);
 
-  try {
-    const response = await fetch(`${API_BASE_URL}/vision/analyze`, {
-      method: 'POST',
-      body: formData,
-      headers: {
-        'Authorization': `Bearer ${process.env.VITE_API_KEY || 'https://pixiestylistss.onrender.com/'}`,
-      }
-    })
-
-    if (!response.ok) {
-      throw new Error(`Vision API Error: ${response.statusText}`)
+  const response = await fetch(
+    `${API_BASE_URL}/api/vision/analyze`,
+    {
+      method: "POST",
+      body: formData
     }
+  );
 
-    return await response.json()
-  } catch (error) {
-    console.error('Vision API Error:', error)
-    throw error
+  if (!response.ok) {
+    throw new Error(`Vision API Error: ${response.status}`);
   }
+
+  return response.json();
 }
 
 /**
- * Get outfit recommendations based on user context
- * @param {Object} context - User preferences, weather, trends, etc.
- * @returns {Promise<Object>} - Outfit recommendations and styling advice
+ * Get outfit recommendations logic
  */
 export async function getOutfitRecommendations(context) {
-  try {
-    const response = await fetch(`${API_BASE_URL}/logic/recommend`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.VITE_API_KEY || 'https://pixiestylistss.onrender.com/'}`,
-      },
+  const response = await fetch(
+    `${API_BASE_URL}/api/logic/recommend`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(context)
-    })
-
-    if (!response.ok) {
-      throw new Error(`Logic API Error: ${response.statusText}`)
     }
+  );
 
-    return await response.json()
-  } catch (error) {
-    console.error('Logic API Error:', error)
-    throw error
+  if (!response.ok) {
+    throw new Error(`Logic API Error: ${response.status}`);
   }
+
+  return response.json();
 }
 
 /**
- * Get contextual information (weather, trends, etc.)
- * @param {string} location - City or location for weather/trends
- * @returns {Promise<Object>} - Weather, trends, and contextual data
+ * Get contextual data
  */
 export async function getContextualData(location) {
-  try {
-    const response = await fetch(`${API_BASE_URL}/context/data`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.VITE_API_KEY || 'https://pixiestylistss.onrender.com/'}`,
-      },
+  const response = await fetch(
+    `${API_BASE_URL}/api/context/data`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ location })
-    })
-
-    if (!response.ok) {
-      throw new Error(`Context API Error: ${response.statusText}`)
     }
+  );
 
-    return await response.json()
-  } catch (error) {
-    console.error('Context API Error:', error)
-    throw error
+  if (!response.ok) {
+    throw new Error(`Context API Error: ${response.status}`);
   }
+
+  return response.json();
 }
 
 /**
- * Generate outfit image using Leonardo AI
- * @param {string} prompt - Detailed prompt for image generation
- * @returns {Promise<string>} - URL to generated outfit image
+ * Generate outfit image
  */
 export async function generateOutfitImage(prompt) {
-  try {
-    const response = await fetch(`${API_BASE_URL}/generate/image`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.VITE_API_KEY || 'https://pixiestylistss.onrender.com/'}`,
-      },
+  const response = await fetch(
+    `${API_BASE_URL}/api/generate/image`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prompt })
-    })
-
-    if (!response.ok) {
-      throw new Error(`Image Generation API Error: ${response.statusText}`)
     }
+  );
 
-    const data = await response.json()
-    return data.imageUrl
-  } catch (error) {
-    console.error('Image Generation API Error:', error)
-    throw error
+  if (!response.ok) {
+    throw new Error(`Image Generation Error: ${response.status}`);
   }
+
+  const data = await response.json();
+  return data.imageUrl;
 }
 
 /**
- * Health check for API availability
- * @returns {Promise<boolean>} - True if API is available
+ * Health check
  */
 export async function checkApiHealth() {
-  try {
-    const response = await fetch(`${API_BASE_URL}/health`, {
-      method: 'GET'
-    })
-    return response.ok
-  } catch (error) {
-    console.error('API Health Check Failed:', error)
-    return false
-  }
+  const response = await fetch(`${API_BASE_URL}/api/health`);
+  return response.ok;
 }
