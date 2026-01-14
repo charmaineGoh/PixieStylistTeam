@@ -8,19 +8,35 @@ const API_BASE_URL = import.meta.env.VITE_API_URL;
  * Send stylist request to backend
  */
 export async function sendStylistRequest(formData) {
-  const response = await fetch(
-    `${API_BASE_URL}/api/stylist/recommend`,
-    {
-      method: "POST",
-      body: formData
+  try {
+    console.log("📤 Sending request to:", `${API_BASE_URL}/api/stylist/recommend`);
+    console.log("🔧 API_BASE_URL:", API_BASE_URL);
+    
+    const response = await fetch(
+      `${API_BASE_URL}/api/stylist/recommend`,
+      {
+        method: "POST",
+        body: formData
+      }
+    );
+
+    console.log("📥 Response status:", response.status);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error("❌ API Error:", errorData);
+      throw new Error(
+        errorData?.error || `Stylist API Error: ${response.status}`
+      );
     }
-  );
 
-  if (!response.ok) {
-    throw new Error(`Stylist API Error: ${response.status}`);
+    const data = await response.json();
+    console.log("✅ Response data:", data);
+    return data;
+  } catch (error) {
+    console.error("🚨 API Request Failed:", error);
+    throw error;
   }
-
-  return response.json();
 }
 
 /**

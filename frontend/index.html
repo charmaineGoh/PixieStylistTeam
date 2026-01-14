@@ -14,53 +14,13 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet" />
   </head>
-  <script>
-  const form = document.getElementById("chat-form");
-  const messages = document.getElementById("messages");
-  const input = document.getElementById("userInput");
-
-  const N8N_WEBHOOK_URL = "https://n8ngc.codeblazar.org/webhook/pixie-stylist";
-
-  function addMessage(text, sender) {
-    const msg = document.createElement("div");
-    msg.className = sender;
-    msg.innerText = text;
-    messages.appendChild(msg);
-    messages.scrollTop = messages.scrollHeight;
-  }
-
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-
-    const userMessage = input.value;
-    addMessage(userMessage, "user");
-    input.value = "";
-
-    try {
-      const response = await fetch(N8N_WEBHOOK_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          message: userMessage
-        })
-      });
-
-      const data = await response.json();
-      addMessage(data.reply || "No response", "bot");
-    } catch (error) {
-      addMessage("Something went wrong 😭", "bot");
-    }
-  });
-</script>
-
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
     
-    <!-- Flowise Chatbot -->
-    <script type="module">
+    <!-- Flowise Chatbot (optional) -->
+    <!-- Uncomment if you want to enable the Flowise chatbot widget -->
+    <!-- <script type="module">
         import Chatbot from "https://cdn.jsdelivr.net/npm/flowise-embed/dist/web.js"
         Chatbot.init({
             chatflowid: "315df90b-c95c-4dda-8c85-d4a5d5b5e0fa",
@@ -101,7 +61,7 @@
                 }
             }
         })
-    </script>
+    </script> -->
   
 
   </body>
