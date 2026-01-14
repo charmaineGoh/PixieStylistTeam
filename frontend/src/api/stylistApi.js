@@ -6,10 +6,20 @@
 // Use environment variable for production, fallback to proxy path for dev
 const API_BASE = import.meta.env.VITE_API_URL;
 
-await fetch(`${API_BASE}/api/stylist`, {
-  method: "POST",
-  body: formData
-});
+
+
+async function getRecommendation(formData) {
+  const response = await fetch(
+    `${VITE_API_URL}/api/stylist/recommend`,
+    {
+      method: "POST",
+      body: formData
+    }
+  );
+
+  return response.json();
+}
+
 
 
 /**
