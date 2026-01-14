@@ -37,7 +37,7 @@ const allowedOrigins = [
 ].filter(Boolean)
 
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: process.env.FRONTEND_URL || 'https://pixie-stylist.onrender.com',
   credentials: true
 }))
 app.use(express.json({ limit: '10mb' }))
