@@ -88,6 +88,14 @@ export default function Home() {
 
       const response = await sendStylistRequest(formData);
 
+      console.log("📦 Full response received:", response);
+      console.log("📝 Response keys:", Object.keys(response || {}));
+
+      // Check if response has an error
+      if (!response?.success && response?.error) {
+        throw new Error(response.error);
+      }
+
       // Map response safely (works even if backend returns slightly different shape)
       const explanation =
         response?.explanation ??
@@ -116,6 +124,8 @@ export default function Home() {
         response?.generatedImage ??
         response?.imageUrl ??
         "";
+
+      console.log("📝 Parsed values:", { explanation, logic, weatherAdjustment, recommendations });
 
       const assistantMessage = {
         id: Date.now() + 1,
