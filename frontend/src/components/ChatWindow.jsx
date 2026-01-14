@@ -1,25 +1,30 @@
 import React, { useEffect, useState } from 'react'
 
-export default function ChatWindow({ messages, loading, chatEndRef }) {
+export default function ChatWindow({ messages = [], loading, chatEndRef }) {
   const [displayedMessages, setDisplayedMessages] = useState([])
 
   // Typing animation for assistant messages
   useEffect(() => {
     if (messages.length > displayedMessages.length) {
       const newMessage = messages[messages.length - 1]
-      
-      if (newMessage.role === 'assistant') {
+
+      if (newMessage?.role === 'assistant') {
         // Animate typing for assistant messages
         let currentText = ''
-        const fullText = newMessage.content
+        const fullText = String(newMessage?.content ?? '')
         let charIndex = 0
-        
+
+        // Add placeholder message first
+        setDisplayedMessages(prev => [...prev, { ...newMessage, displayedContent: '' }])
+
         const typingInterval = setInterval(() => {
           if (charIndex < fullText.length) {
             currentText += fullText[charIndex]
             charIndex++
+
             setDisplayedMessages(prev => {
               const updated = [...prev]
+              if (updated.length === 0) return prev
               updated[updated.length - 1] = {
                 ...newMessage,
                 displayedContent: currentText
@@ -30,19 +35,19 @@ export default function ChatWindow({ messages, loading, chatEndRef }) {
             clearInterval(typingInterval)
             setDisplayedMessages(prev => {
               const updated = [...prev]
-              updated[updated.length - 1] = newMessage
+              if (updated.length === 0) return prev
+              updated[updated.length - 1] = { ...newMessage, content: fullText }
               return updated
             })
           }
         }, 15)
-        
-        setDisplayedMessages(prev => [...prev, { ...newMessage, displayedContent: '' }])
+
         return () => clearInterval(typingInterval)
       } else {
         setDisplayedMessages(prev => [...prev, newMessage])
       }
     }
-  }, [messages])
+  }, [messages, displayedMessages.length])
 
   return (
     <div className="h-screen max-h-[800px] bg-white rounded-xl shadow-sm flex flex-col border border-gray-200">
@@ -61,43 +66,45 @@ export default function ChatWindow({ messages, loading, chatEndRef }) {
             </div>
           </div>
         ) : (
-          displayedMessages.map((msg, idx) => (
-            <div
-              key={msg.id || idx}
-              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              {/* Message Bubble */}
-              <div
-                className={`max-w-xs lg:max-w-md rounded-xl p-4 ${
-                  msg.role === 'user'
-                    ? 'bg-gradient-to-r from-[#6C5CE7] to-[#00CEC9] text-white rounded-br-none'
-                    : 'bg-gray-100 text-gray-800 rounded-bl-none'
-                } ${msg.isError ? 'bg-red-100 text-red-800' : ''}`}
-              >
-                {/* Message Content with Typing Effect */}
-                <p className="text-sm leading-relaxed">
-                  {msg.displayedContent !== undefined ? msg.displayedContent : msg.content}
-                  {msg.displayedContent !== undefined && msg.displayedContent.length < msg.content.length && (
-                    <span className="inline-block ml-1 animate-pulse">▌</span>
-                  )}
-                </p>
+          displayedMessages.map((msg, idx) => {
+            const content = String(msg?.content ?? '')
+            const displayed = msg?.displayedContent
 
-                {/* Image Previews in User Messages */}
-                {msg.images && msg.images.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {msg.images.map((imgSrc, i) => (
-                      <img
-                        key={i}
-                        src={imgSrc}
-                        alt={`uploaded-${i}`}
-                        className="h-16 w-16 object-cover rounded-lg border border-white"
-                      />
-                    ))}
-                  </div>
-                )}
+            return (
+              <div
+                key={msg.id || idx}
+                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                <div
+                  className={`max-w-xs lg:max-w-md rounded-xl p-4 ${
+                    msg.role === 'user'
+                      ? 'bg-gradient-to-r from-[#6C5CE7] to-[#00CEC9] text-white rounded-br-none'
+                      : 'bg-gray-100 text-gray-800 rounded-bl-none'
+                  } ${msg.isError ? 'bg-red-100 text-red-800' : ''}`}
+                >
+                  <p className="text-sm leading-relaxed">
+                    {displayed !== undefined ? displayed : content}
+                    {displayed !== undefined && displayed.length < content.length && (
+                      <span className="inline-block ml-1 animate-pulse">▌</span>
+                    )}
+                  </p>
+
+                  {Array.isArray(msg.images) && msg.images.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {msg.images.map((imgSrc, i) => (
+                        <img
+                          key={i}
+                          src={imgSrc}
+                          alt={`uploaded-${i}`}
+                          className="h-16 w-16 object-cover rounded-lg border border-white"
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))
+            )
+          })
         )}
 
         {loading && (
