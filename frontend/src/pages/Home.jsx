@@ -73,8 +73,8 @@ export default function Home() {
       }))
 
       // Add images to form data
-      uploadedImages.forEach((img, index) => {
-        formData.append(`image_${index}`, img.file)
+      uploadedImages.forEach((img) => {
+        formData.append(`image_${img.id}`, img.file)
       })
 
       // Send request to backend orchestrator
