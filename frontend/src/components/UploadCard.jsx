@@ -71,6 +71,7 @@ export default function UploadCard({ images, onImageUpload, onRemoveImage }) {
                 {/* Overlay on Hover */}
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
                   <button
+                  type="button"
                     onClick={(e) => {
                       e.stopPropagation()
                       onRemoveImage(img.id)
