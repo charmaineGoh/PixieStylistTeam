@@ -47,7 +47,13 @@ if (!process.env.GEMINI_API_KEY) {
     "⚠️ GEMINI_API_KEY is missing. Set it in Render environment variables."
   );
 }
-const ai = new GoogleGenAI({}); // picks up GEMINI_API_KEY from env :contentReference[oaicite:1]{index=1}
+
+
+if (!GEMINI_KEY) {
+  console.warn("⚠️ No Gemini key found. Set GEMINI_API_KEY in Render env.");
+}
+
+const ai = new GoogleGenAI({ apiKey: GEMINI_KEY });
 
 // ---- Helpers ----
 function safeJsonParse(str, fallback = null) {
