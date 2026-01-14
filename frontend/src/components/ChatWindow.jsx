@@ -1,45 +1,63 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 
 export default function ChatWindow({ messages = [], loading, chatEndRef }) {
   const [displayedMessages, setDisplayedMessages] = useState([]);
+  const lastProcessedIndex = useRef(-1);
+  const typingIntervalRef = useRef(null);
 
   useEffect(() => {
-    if (messages.length > displayedMessages.length) {
-      const newMessage = messages[messages.length - 1];
+    // Check if there are new messages to process
+    if (messages.length > lastProcessedIndex.current + 1) {
+      const newIndex = lastProcessedIndex.current + 1;
+      const newMessage = messages[newIndex];
+      
+      if (!newMessage) return;
 
-      if (newMessage?.role === "assistant") {
-        let currentText = "";
-        const fullText = String(newMessage?.content ?? "");
+      if (newMessage.role === "assistant") {
+        // Add message with typing effect
+        const fullText = String(newMessage.content ?? "");
         let charIndex = 0;
 
+        // Clear any existing typing interval
+        if (typingIntervalRef.current) {
+          clearInterval(typingIntervalRef.current);
+        }
+
+        // Add the message skeleton first
         setDisplayedMessages((prev) => [...prev, { ...newMessage, displayedContent: "" }]);
 
-        const typingInterval = setInterval(() => {
-          if (charIndex < fullText.length) {
-            currentText += fullText[charIndex++];
+        // Start typing animation
+        typingIntervalRef.current = setInterval(() => {
+          if (charIndex <= fullText.length) {
+            const currentText = fullText.substring(0, charIndex);
             setDisplayedMessages((prev) => {
               const updated = [...prev];
-              if (updated.length === 0) return prev;
-              updated[updated.length - 1] = { ...newMessage, displayedContent: currentText };
+              const lastIdx = updated.length - 1;
+              if (lastIdx >= 0) {
+                updated[lastIdx] = { ...newMessage, displayedContent: currentText };
+              }
               return updated;
             });
+            charIndex++;
           } else {
-            clearInterval(typingInterval);
-            setDisplayedMessages((prev) => {
-              const updated = [...prev];
-              if (updated.length === 0) return prev;
-              updated[updated.length - 1] = { ...newMessage, content: fullText };
-              return updated;
-            });
+            clearInterval(typingIntervalRef.current);
+            typingIntervalRef.current = null;
           }
         }, 15);
-
-        return () => clearInterval(typingInterval);
       } else {
+        // User message - add immediately
         setDisplayedMessages((prev) => [...prev, newMessage]);
       }
+
+      lastProcessedIndex.current = newIndex;
     }
-  }, [messages, displayedMessages.length]);
+
+    return () => {
+      if (typingIntervalRef.current) {
+        clearInterval(typingIntervalRef.current);
+      }
+    };
+  }, [messages]);
 
   return (
     <div className="h-screen max-h-[800px] bg-white rounded-xl shadow-sm flex flex-col border border-gray-200">
