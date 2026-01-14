@@ -2,7 +2,7 @@ import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
 export default defineConfig({
-  base: '/PixieStylistTeam/',
+  base: '/',
   plugins: [react()],
   server: {
     port: 5173,
@@ -19,9 +19,14 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: true,
     minify: 'terser',
+    chunkSizeWarningLimit: 1000,
   },
   define: {
-    'process.env.VITE_API_URL': JSON.stringify(process.env.VITE_API_URL || 'https://pixiestylistbackend-5iuc.onrender.com'),
-    'process.env.VITE_API_KEY': JSON.stringify(process.env.VITE_API_KEY || 'mock-api-key'),
+    'process.env.VITE_API_URL': JSON.stringify(
+      process.env.VITE_API_URL || 'https://pixiestylistteambackend.onrender.com'
+    ),
+    'process.env.VITE_API_KEY': JSON.stringify(
+      process.env.VITE_API_KEY || 'mock-api-key'
+    ),
   },
 })
